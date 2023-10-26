@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#ffca9925"
+    android:fadingEdge="none">
+    <Button
+        android:text="Start livetrack"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/ostarttrack" />
+    <Button
+        android:text="Start and mail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/ostartmail" />
+    <Button
+        android:text="close"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/oclose" />
+
+</LinearLayout>

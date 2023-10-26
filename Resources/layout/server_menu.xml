@@ -1,0 +1,17 @@
+﻿<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools" >  
+  
+
+    <item  android:id="@+id/opentracksite"  
+        android:title="Open tracking site"/>  
+    <item  android:id="@+id/shareUrl"  
+        android:title="Share tracking url"/>  
+    <item  android:id="@+id/takePic"  
+        android:title="Choose and send a picture"/> 
+    <item  android:id="@+id/ShotPic"  
+        android:title="Take and send a picture"/>
+    <item  android:id="@+id/opensettings"  
+        android:title="Open settings"/>  
+
+</menu>  

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <TextView
+        android:text="Update intervals : 0 seconds"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="15dp"
+        android:id="@+id/updateIntervalLabel" />
+    <SeekBar
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:minWidth="25px"
+        android:minHeight="50px"
+        android:id="@+id/updateInterval"
+        android:min="10"
+        android:max="360" />
+    <TextView
+        android:text="Tracking ID :"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/textView1" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <EditText
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_weight=".70"
+            android:minWidth="25px"
+            android:minHeight="25px"
+            android:editable="false"
+            android:id="@+id/trackId"
+            android:inputType="none" />
+        <Button
+            android:text="Regen"
+            android:layout_weight=".30"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:id="@+id/regenBut" />
+    </LinearLayout>
+
+</LinearLayout>
