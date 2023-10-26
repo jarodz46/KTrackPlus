@@ -129,7 +129,7 @@ namespace KTrackPlus
             //Console.WriteLine("Start foreground notification...");
             StartForeground(NotificationId, notification);
 
-            Toast.MakeText(this, "KTrackPlus service Started", ToastLength.Long).Show();
+            
             isRunning = true;
 
             ActicityMonitor.Start(this);
@@ -141,12 +141,13 @@ namespace KTrackPlus
                 if (!UsedManager.Start())
                 {
                     Console.WriteLine("Fail to start service");
+                    isRunning = false;
                     new Thread(t =>
                     {
                         Thread.Sleep(1000);
-                        StopSelf();
-                        isRunning = false;
+                        StopSelf();                        
                     }).Start();
+
                 }
             }
             else
@@ -165,7 +166,8 @@ namespace KTrackPlus
                 }
             }
 
-            Xamarin.Essentials.Preferences.Set("alreadyRunned", false);
+            Toast.MakeText(this, "KTrackPlus service Started", ToastLength.Long).Show();
+            Xamarin.Essentials.Preferences.Set("alreadyRunned", true);
 
 
         end:

@@ -57,6 +57,12 @@ namespace KTrackPlus.Helpers
             _bluetoothManager = (BluetoothManager)mContext.GetSystemService(Context.BluetoothService);
             _bluetoothAdapter = _bluetoothManager?.Adapter;
 
+            if (!_bluetoothAdapter.IsEnabled)
+            {
+                Console.WriteLine("Bluetooth is not enabled !");
+                return false;
+            }
+
             _bluettothServerCallback = new Server.BleGattServerCallback();
             if (_bluettothServerCallback == null || _bluetoothManager == null)
                 return false;

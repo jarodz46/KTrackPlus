@@ -48,18 +48,18 @@ namespace KTrackPlus.Helpers
         public bool Start()
         {
             try
-            {
-                if (timer == null)
+            {               
+                var date = System.DateTime.Now;
+                Preferences.Set("lastStartDay", date.Day + "/" + date.Month);
+                UsedId = string.Empty;
+                var result = InternalStart();
+                if (result && timer == null)
                 {
                     var strInterval = Preferences.Get("updateInterval", "30");
                     var interval = int.Parse(strInterval);
                     timer = new Java.Util.Timer();
                     timer.Schedule(new Task(this), 1000, 1000 * interval);
                 }
-                var date = System.DateTime.Now;
-                Preferences.Set("lastStartDay", date.Day + "/" + date.Month);
-                UsedId = string.Empty;
-                var result = InternalStart();
                 IsRunning = result;
                 return result;
             }

@@ -152,11 +152,28 @@ namespace KTrackPlus
             base.OnResume();
             nDialog?.Dismiss();
             nDialog = null;
+
+            try
+            {
+                var fixBut = FindViewById<ImageButton>(Resource.Id.fixBackground);
+                if (fixBut != null)
+                {
+                    fixBut.Visibility = CheckBatteryOptimization() ? ViewStates.Gone : ViewStates.Visible;
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
+
+
+
             if (firstStart)
             {
                 firstStart = false;
                 return;
             }
+                       
             
             if (Common.CheckAppMode())
             {
@@ -165,8 +182,9 @@ namespace KTrackPlus
             }
         }
 
-        bool CheckBatteryOptimization(int sdk)
+        bool CheckBatteryOptimization()
         {
+            var sdk = (int)Build.VERSION.SdkInt;
             var powerMng = GetSystemService(PowerService) as PowerManager;
             if (sdk >= 28 && powerMng != null)
             {
@@ -178,21 +196,6 @@ namespace KTrackPlus
         bool CheckPermissionsAndStart()
         {
             var sdk = (int)Build.VERSION.SdkInt;
-            if (!CheckBatteryOptimization(sdk))
-            {
-                var line2 = "Battery optimization->All apps->KTrackPlus->Don't optimize";
-                string message = "You need to disable battery optimization to avoid background issues" +
-                        System.Environment.NewLine + line2;
-
-                ShowAlert(message,
-                    () =>
-                    {
-                        Toast.MakeText(this, line2, ToastLength.Long)?.Show();
-                        var intent = new Android.Content.Intent(Android.Provider.Settings.ActionIgnoreBatteryOptimizationSettings);
-                        StartActivity(intent);
-                    });
-                return false;
-            }
 
 
             var locProvider = Preferences.Get("locationsProvider", Common.IsKarooDevice ? "current" : "gps");
@@ -387,120 +390,155 @@ namespace KTrackPlus
         protected override void OnCreate(Bundle? savedInstanceState)
         {
 
-            base.OnCreate(savedInstanceState);
-            Platform.Init(this, savedInstanceState);
-
-            Console.SetOut(writer);
-
-            HandleIntent();
-
-            SetContentView(Resource.Layout.main_layout);
-           
-            Common.CheckAppMode();
-
-            //if (savedInstanceState == null && Common.CurrentAppMode != Common.AppMode.Server)
-            refreshUiAndFragment(true);
-
-            var textview = FindViewById<TextView>(Resource.Id.textView1);
-            var scrollView = FindViewById<ScrollView>(Resource.Id.SCROLLER_ID);
-            //var button = FindViewById<Button>(Resource.Id.sw);
-            if (textview != null && scrollView != null)
+            try
             {
-                writer.Set(this, textview, scrollView);
-                textview.Text = writer.stringBuilder.ToString();
-                scrollView.FullScroll(Android.Views.FocusSearchDirection.Down);                
-            }
+                base.OnCreate(savedInstanceState);
+                Platform.Init(this, savedInstanceState);
 
-            //if (KTrackService.isRunning && button != null)
-            //{
-            //    button.Text = "Stop";
-            //}
+                Console.SetOut(writer);
 
-            var serviceToggle = FindViewById<Switch>(Resource.Id.serviceSwitch);
-            if (serviceToggle != null)
-            {
-                serviceToggle.Checked = KTrackService.isRunning;
-                serviceToggle.CheckedChange += delegate (object? sender, CompoundButton.CheckedChangeEventArgs e)
+                HandleIntent();
+
+                SetContentView(Resource.Layout.main_layout);
+
+                Common.CheckAppMode();
+
+                
+
+                //if (savedInstanceState == null && Common.CurrentAppMode != Common.AppMode.Server)
+                refreshUiAndFragment(true);
+
+                var textview = FindViewById<TextView>(Resource.Id.textView1);
+                var scrollView = FindViewById<ScrollView>(Resource.Id.SCROLLER_ID);
+                //var button = FindViewById<Button>(Resource.Id.sw);
+                if (textview != null && scrollView != null)
                 {
-                    serviceToggle.Enabled = false;
-                    new Task(() =>
-                    {
-                        try
-                        {
-                            SetService(e.IsChecked);
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine(e.ToString());
-                        }
-                        finally
-                        {
-                            RunOnUiThread(() => 
-                            {
-                                serviceToggle.Checked = KTrackService.isRunning;
-                                serviceToggle.Enabled = true; 
-                            });
-                        }                        
-                    }).Start();
-                };
-            }
+                    writer.Set(this, textview, scrollView);
+                    textview.Text = writer.stringBuilder.ToString();
+                    scrollView.FullScroll(Android.Views.FocusSearchDirection.Down);
+                }
 
-            Get = this;
+                //if (KTrackService.isRunning && button != null)
+                //{
+                //    button.Text = "Stop";
+                //}
 
-            var statusView = FindViewById<TextView>(Resource.Id.sync_status);
-
-            if (statusView != null)
-            {
-                refreshUITimer.Elapsed += delegate
+                var serviceToggle = FindViewById<Switch>(Resource.Id.serviceSwitch);
+                if (serviceToggle != null)
                 {
-                    RunOnUiThread(() =>
+                    serviceToggle.Checked = KTrackService.isRunning;
+                    serviceToggle.CheckedChange += delegate (object? sender, CompoundButton.CheckedChangeEventArgs e)
                     {
-
-                        statusView.Text = "Stopped";
-                        if (KTrackService.isRunning && KTrackService.UsedManager != null)
+                        serviceToggle.Enabled = false;
+                        new Task(() =>
                         {
-                            
-                            if (Common.CurrentAppMode == Common.AppMode.Client)
+                            try
                             {
-                                var manager = ClientManager.Get;
-                                statusView.Text = "Disconnected : ";
-                                if (manager.readyToSend)
-                                {
-                                    
-                                    statusView.Text = "Connected : ";
-                                }
-                                statusView.Text += manager.locations.Count + " locs to send";
+                                SetService(e.IsChecked);
                             }
-                            else
+                            catch (Exception e)
                             {
-                                var manager = KTrackService.UsedManager;
-                                statusView.Text = string.Empty;
-                                if (manager.internetStatus != null)
-                                {
-                                    if (manager.internetStatus == true)
-                                    {
-                                        statusView.Text += "[Internet OK] ";
-                                    }
-                                    else
-                                    {
-                                        statusView.Text += "[No Internet] ";
-                                    }
-                                }
-                                statusView.Text += manager.locations.Count + " locations";
-                                var picCount = manager.pictures.Count;
-                                if (picCount > 0)
-                                {
-                                    statusView.Text +=  "and " + picCount + " pic" + (picCount > 1 ? "s" : string.Empty);
-                                }
-                                statusView.Text += " to send";
+                                Console.WriteLine(e.ToString());
                             }
-                        }
+                            finally
+                            {
+                                RunOnUiThread(() =>
+                                {
+                                    serviceToggle.Checked = KTrackService.isRunning;
+                                    serviceToggle.Enabled = true;
+                                });
+                            }
+                        }).Start();
+                    };
+                }
 
-                    });
-                };
-                refreshUITimer.Start();
+                try
+                {
+                    var fixBut = FindViewById<ImageButton>(Resource.Id.fixBackground);
+                    if (fixBut != null)
+                    {
+                        fixBut.Click += delegate
+                        {
+                            var line2 = "Battery optimization->All apps->KTrackPlus->Don't optimize";
+                            string message = "You need to disable battery optimization to avoid background issues" +
+                                    System.Environment.NewLine + line2;
+
+                            ShowAlert(message,
+                                () =>
+                                {
+                                    Toast.MakeText(this, line2, ToastLength.Long)?.Show();
+                                    var intent = new Android.Content.Intent(Android.Provider.Settings.ActionIgnoreBatteryOptimizationSettings);
+                                    StartActivity(intent);
+                                });
+                        };
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+
+                Get = this;
+
+                var statusView = FindViewById<TextView>(Resource.Id.sync_status);
+
+                if (statusView != null)
+                {
+                    refreshUITimer.Elapsed += delegate
+                    {
+                        RunOnUiThread(() =>
+                        {
+
+                            statusView.Text = "Stopped";
+                            if (KTrackService.isRunning && KTrackService.UsedManager != null)
+                            {
+
+                                if (Common.CurrentAppMode == Common.AppMode.Client)
+                                {
+                                    var manager = ClientManager.Get;
+                                    statusView.Text = "Disconnected : ";
+                                    if (manager.readyToSend)
+                                    {
+
+                                        statusView.Text = "Connected : ";
+                                    }
+                                    statusView.Text += manager.locations.Count + " locs to send";
+                                }
+                                else
+                                {
+                                    var manager = KTrackService.UsedManager;
+                                    statusView.Text = string.Empty;
+                                    if (manager.internetStatus != null)
+                                    {
+                                        if (manager.internetStatus == true)
+                                        {
+                                            statusView.Text += "[Internet OK] ";
+                                        }
+                                        else
+                                        {
+                                            statusView.Text += "[No Internet] ";
+                                        }
+                                    }
+                                    statusView.Text += manager.locations.Count + " locations";
+                                    var picCount = manager.pictures.Count;
+                                    if (picCount > 0)
+                                    {
+                                        statusView.Text += "and " + picCount + " pic" + (picCount > 1 ? "s" : string.Empty);
+                                    }
+                                    statusView.Text += " to send";
+                                }
+                            }
+
+                        });
+                    };
+                    refreshUITimer.Start();
+                }
+
             }
-
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
 
         }
 
