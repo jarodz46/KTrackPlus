@@ -14,6 +14,8 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Globalization;
 using Android.Health.Connect.DataTypes.Units;
+using KTrackPlus.Helpers.Client;
+using KTrackPlus.Helpers.Server;
 
 namespace KTrackPlus.Helpers
 {
@@ -41,6 +43,7 @@ namespace KTrackPlus.Helpers
 
         public ServerManager(Context context) : base(context)
         {
+            bluetoothReceiver = new ServerBluetoothReceiver(this);
         }
 
         private BluetoothManager? _bluetoothManager;
@@ -51,11 +54,19 @@ namespace KTrackPlus.Helpers
         private BluetoothGattCharacteristic _characteristicNotify;
         private BluetoothGattDescriptor? _descriptorNotify;
         private Server.BleAdvertiseCallback _bleAdvertiseCallback;
+        BluetoothLeAdvertiser? _BluetoothLeAdvertiser;
+        ServerBluetoothReceiver bluetoothReceiver { get; set; }
 
         protected override bool InternalStart()
         {
             _bluetoothManager = (BluetoothManager)mContext.GetSystemService(Context.BluetoothService);
             _bluetoothAdapter = _bluetoothManager?.Adapter;
+
+            if (_bluetoothAdapter == null)
+            {
+                Console.WriteLine("Can't get bluetooth adapter");
+                return false;
+            }
 
             if (!_bluetoothAdapter.IsEnabled)
             {
@@ -63,9 +74,33 @@ namespace KTrackPlus.Helpers
                 return false;
             }
 
+            mContext?.RegisterReceiver(bluetoothReceiver, new IntentFilter(BluetoothAdapter.ActionStateChanged));
+
             _bluettothServerCallback = new Server.BleGattServerCallback();
             if (_bluettothServerCallback == null || _bluetoothManager == null)
                 return false;
+
+            waitForId = true;
+
+            ImgurUpload.Clear();
+
+            if (!StartAdvertising())
+            {
+                Console.WriteLine("Fail to start adverstising");
+                return false;
+            }
+            if (!StartServer())
+            {
+                Console.WriteLine("Fail to start ble server");
+                StopAdvsersting();
+                return false;
+            }
+
+            return true;
+        }
+
+        internal bool StartServer()
+        {
             _bluetoothServer = _bluetoothManager.OpenGattServer(mContext, _bluettothServerCallback);
 
             var service = new BluetoothGattService(Common.DEVICE_UUID_SERVICE, GattServiceType.Primary);
@@ -83,17 +118,22 @@ namespace KTrackPlus.Helpers
             _characteristicNotify.AddDescriptor(_descriptorNotify);
             service.AddCharacteristic(_characteristicNotify);
 
-            waitForId = true;
-
             _bluetoothServer?.AddService(service);
+            return true;
+        }
 
-            Console.WriteLine("Server created!");
+        internal void StopServer()
+        {
+            //_bluetoothServer?.ClearServices();
+            _bluetoothServer?.Close();
+           
+        }
 
-            ImgurUpload.Clear();
+        internal bool StartAdvertising()
+        {
+            _BluetoothLeAdvertiser = _bluetoothAdapter.BluetoothLeAdvertiser;
 
-            BluetoothLeAdvertiser myBluetoothLeAdvertiser = _bluetoothAdapter.BluetoothLeAdvertiser;
-
-            if (myBluetoothLeAdvertiser != null)
+            if (_BluetoothLeAdvertiser != null)
             {
 
                 var builder = new AdvertiseSettings.Builder();
@@ -106,24 +146,36 @@ namespace KTrackPlus.Helpers
                 dataBuilder.AddServiceUuid(new Android.OS.ParcelUuid(Common.DEVICE_UUID_SERVICE));
                 dataBuilder.SetIncludeTxPowerLevel(false);
 
-                _bleAdvertiseCallback = new Server.BleAdvertiseCallback();
-                myBluetoothLeAdvertiser.StartAdvertising(builder.Build(), dataBuilder.Build(), _bleAdvertiseCallback);
+                _bleAdvertiseCallback = new BleAdvertiseCallback();
+                _BluetoothLeAdvertiser.StartAdvertising(builder.Build(), dataBuilder.Build(), _bleAdvertiseCallback);
                 return true;
 
             }
-
             return false;
+        }
+
+        internal void StopAdvsersting()
+        {
+            _BluetoothLeAdvertiser?.StopAdvertising(_bleAdvertiseCallback);
         }
 
         protected override void InternalStop()
         {
-            BluetoothLeAdvertiser myBluetoothLeAdvertiser = _bluetoothAdapter.BluetoothLeAdvertiser;
-            myBluetoothLeAdvertiser.StopAdvertising(_bleAdvertiseCallback);
-            _bluetoothServer?.Close();
+            new Task(() =>
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    Console.WriteLine("Stop ble server...");
+                    StopServer();
+                    StopAdvsersting();
+                });
+            }).Start();
+            
         }
 
         protected override void InternalReset()
         {
+            
         }
 
 

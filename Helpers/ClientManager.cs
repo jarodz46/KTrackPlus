@@ -47,11 +47,12 @@ namespace KTrackPlus.Helpers
 
         public ClientManager(Context context) : base(context)
         {
+            bluetoothReceiver = new ClientBluetoothReceiver(this);
         }
 
 
         bool bluetoothtregistered { get; set; } = false;
-        Client.BluetoothReceiver bluetoothReceiver { get; set; } = new();
+        Client.ClientBluetoothReceiver bluetoothReceiver { get; set; }
         internal BluetoothGatt? mGatt { get; set; } = null;
         internal bool readyToSend { get; set; } = false;
         internal BluetoothGattCharacteristic? CharacteristicWrite { get; set; }
@@ -63,7 +64,7 @@ namespace KTrackPlus.Helpers
 
         string locProvider = string.Empty;
 
-        CancellationTokenSource cts;
+        //CancellationTokenSource cts;
         double lastPressure = 0;
         bool pressureSensor = false;
         int lastPressureTT = 0;
