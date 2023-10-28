@@ -84,7 +84,7 @@ namespace KTrackPlus.Helpers
             {
                 altitude = SensorManager.GetAltitude(SensorManager.PressureStandardAtmosphere, (float)lastPressure);
             }
-            var newLoc = new SimpleLocation((float)location.Latitude, (float)location.Longitude, fitTT, altitude == null ? 0 : (float)altitude);
+            var newLoc = new SimpleLocation(fitTT, (float)location.Latitude, (float)location.Longitude, altitude == null ? 0 : (float)altitude);
             Stats.Push(newLoc);
             lock (locations)
             {
@@ -489,7 +489,7 @@ namespace KTrackPlus.Helpers
                                 var alt = recordMesg.GetAltitude();
                                 if (alt == null) alt = 0;
                                 var dateTime = new DateTimeOffset(recordMesg.GetTimestamp().GetDateTime());
-                                var newLoc = new SimpleLocation((float)lat, (float)lng, tt, (float)alt);
+                                var newLoc = new SimpleLocation(tt, (float)lat, (float)lng, (float)alt);
                                 newLocs.Add(newLoc);
                                 addedLocs++;
 

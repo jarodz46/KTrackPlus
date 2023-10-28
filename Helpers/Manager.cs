@@ -1,6 +1,7 @@
 ﻿using Android.Content;
 using Dynastream.Fit;
 using Java.Util;
+using MessagePack;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -230,8 +231,10 @@ namespace KTrackPlus.Helpers
             if (locs.Count == 0)
                 return true;
             Stats.updated = true;
-            return await sendToAPI("locations", locs);
+            return await sendToAPI("locations", new LocationsPack(locs));
         }
+
+        
 
         public class MailInfos
         {
@@ -297,8 +300,9 @@ namespace KTrackPlus.Helpers
                 {
                     result = await sendLocationsPack(locsToSend);
                 }
-                catch
+                catch (Exception e)
                 {
+                    Console.WriteLine(e);
                     result = false;
                 }
                 if (result)
@@ -321,6 +325,45 @@ namespace KTrackPlus.Helpers
         }
 
         internal async Task<bool> sendToAPI(string getInfos, object? content = null, string? ofile = null)
+        {
+            HttpClient client = new HttpClient();
+            var file = "pushInfos2.php";
+            if (ofile != null)
+                file = ofile;
+            var baseUrl = apiUrl + file + "?id=" + UsedId;
+            if (getInfos.Length > 0)
+                baseUrl += "&";
+            HttpResponseMessage response;
+            if (content != null)
+            {
+                var mpLocsBytes = MessagePack.MessagePackSerializer.Serialize(content);
+                var memoryStream = new MemoryStream();
+                GZipStream zip = new GZipStream(memoryStream, CompressionLevel.SmallestSize, true);
+                zip.Write(mpLocsBytes, 0, mpLocsBytes.Length);
+                zip.Close();
+                memoryStream.Position = 0;
+                var scontent = new StreamContent(memoryStream);
+                scontent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                scontent.Headers.ContentEncoding.Add("gzip");
+
+                response = await client.PostAsync(baseUrl + getInfos, scontent);
+                memoryStream.Close();
+            }
+            else
+            {
+                response = await client.GetAsync(baseUrl + getInfos);
+            }
+            if (response.IsSuccessStatusCode)
+            {
+                if (ofile != null)
+                    return true;
+                return await response.Content.ReadAsStringAsync() == "OK";
+            }
+            return false;
+        }
+
+        // old json
+        internal async Task<bool> sendToAPI2(string getInfos, object? content = null, string? ofile = null)
         {
             HttpClient client = new HttpClient();
             var file = "pushInfos.php";

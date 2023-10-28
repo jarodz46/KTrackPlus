@@ -1,5 +1,8 @@
-﻿using Android.Content;
+﻿using Android.App.Usage;
+using Android.Content;
+using Android.Content.PM;
 using Android.OS;
+using Android.Telephony;
 using AndroidX.AppCompat.App;
 using AndroidX.Core.App;
 using Java.Util;
@@ -144,6 +147,46 @@ namespace KTrackPlus.Helpers
             return degrees * Math.PI / 180.0;
         }
 
-       
+        static string? getActiveSuscriberId(Context context)
+        {
+            var tm = context.GetSystemService(Context.TelephonyService) as TelephonyManager;
+            string? suscriberId = string.Empty;
+            if (tm != null)
+            {
+                suscriberId = tm.SubscriberId;
+            }
+            return suscriberId;
+        }
+
+        public static long GetAppNetworkUsage(Context context, long startTime, long endTime)
+        {
+            var nsm = context.ApplicationContext.GetSystemService(Context.NetworkStatsService) as NetworkStatsManager;
+            var subscriberId = getActiveSuscriberId(context);
+            if (string.IsNullOrEmpty(subscriberId))
+                return 0;
+            NetworkStats netwokStatsByApp;
+            long currentAppUsage = 0;
+            var puid = context.PackageManager.GetPackageUid(context.PackageName, 0);
+            try
+            {
+                netwokStatsByApp = nsm.QuerySummary(Android.Net.ConnectivityType.Mobile, subscriberId, startTime, endTime);
+                var bucket = new NetworkStats.Bucket();
+                do
+                {
+                    netwokStatsByApp.GetNextBucket(bucket);
+                    if (bucket.Uid == puid)
+                    {
+                        currentAppUsage = bucket.RxBytes + bucket.TxBytes;
+                    }
+                } while (netwokStatsByApp.HasNextBucket);
+                netwokStatsByApp.Close();
+            }
+            catch
+            {
+                Console.WriteLine("Error while getting network usage");
+            }
+            return currentAppUsage;
+
+        }
     }
 }

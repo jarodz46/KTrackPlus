@@ -88,6 +88,8 @@ namespace KTrackPlus
 
 
         static Context? context;
+
+        internal static long StartTime { get; set; } = 0;
         
 
         static NotificationCompat.Builder notificationBuilder;
@@ -168,7 +170,7 @@ namespace KTrackPlus
 
             Toast.MakeText(this, "KTrackPlus service Started", ToastLength.Long).Show();
             Xamarin.Essentials.Preferences.Set("alreadyRunned", true);
-
+            StartTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         end:
             return base.OnStartCommand(intent, flags, startId);

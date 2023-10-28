@@ -14,6 +14,8 @@ using MetadataExtractor.Formats.Exif;
 using Android.Provider;
 using static Java.Util.Jar.Attributes;
 using Android.App;
+using Java.IO;
+using Console = System.Console;
 
 namespace KTrackPlus
 {
@@ -481,6 +483,7 @@ namespace KTrackPlus
                 Get = this;
 
                 var statusView = FindViewById<TextView>(Resource.Id.sync_status);
+                var statusLabel = FindViewById<TextView>(Resource.Id.sync_led);
 
                 if (statusView != null)
                 {
@@ -492,7 +495,8 @@ namespace KTrackPlus
                             statusView.Text = "Stopped";
                             if (KTrackService.isRunning && KTrackService.UsedManager != null)
                             {
-
+                                //var usedData = Common.GetAppNetworkUsage(this, KTrackService.StartTime, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                                //statusLabel.Text = "Status : data usage : " + usedData;
                                 if (Common.CurrentAppMode == Common.AppMode.Client)
                                 {
                                     var manager = ClientManager.Get;

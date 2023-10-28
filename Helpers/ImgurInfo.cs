@@ -5,13 +5,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using MessagePack;
 
 namespace KTrackPlus.Helpers
 {
+    [MessagePackObject]
     public class SimpleImgurInfo
     {
+        [Key(0)]
         public string Url { get; set; }
+        [Key(1)]
         public string Thumbnail { get; set; }
+        [Key(2)]
         public long Timestamp {get; set; }
 
         public SimpleImgurInfo(ImgurInfo imgurInfo, long tt)
@@ -19,6 +24,14 @@ namespace KTrackPlus.Helpers
             Url = imgurInfo.Original;
             Thumbnail = imgurInfo.SmallSquare;
             Timestamp = tt;
+        }
+
+        // For messagepack
+        public SimpleImgurInfo(string url, string thumbnail, long timestamp)
+        {
+            Url = url;
+            Thumbnail = thumbnail;
+            Timestamp = timestamp;
         }
     }
 

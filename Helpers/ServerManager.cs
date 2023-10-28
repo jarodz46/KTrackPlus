@@ -284,7 +284,7 @@ namespace KTrackPlus.Helpers
                             var lat = BitConverter.ToSingle(buffer, 4);
                             var lng = BitConverter.ToSingle(buffer, 8);
                             var alt = BitConverter.ToSingle(buffer, 12);
-                            var newLoc = new SimpleLocation(lat, lng, tt, alt);
+                            var newLoc = new SimpleLocation(tt, lat, lng, alt);
                             newLocs.Add(newLoc);
                         }
                         zip.Close();

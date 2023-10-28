@@ -3,17 +3,34 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MessagePack;
 
 namespace KTrackPlus.Helpers
 {
-    internal class Stats
+    [MessagePackObject]
+    public class Stats
     {
+        [Key(0)]
         public float ascend { get; set; } = 0;
+        [Key(1)]
         public float distance { get; set; } = 0;
+        [Key(2)]
         public uint rideTime { get; set; } = 0;
+        [Key(3)]
         public float avgSpeed { get; set; } = 0;
 
+        public Stats() { }
 
+        //For messagepack
+        public Stats(float ascend, float distance, uint rideTime, float avgSpeed)
+        {
+            this.ascend = ascend;
+            this.distance = distance;
+            this.rideTime = rideTime;
+            this.avgSpeed = avgSpeed;
+        }
+
+        [IgnoreMember]
         public bool updated { get; set; } = false;
 
         int count = 0;

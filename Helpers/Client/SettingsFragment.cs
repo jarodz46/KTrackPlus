@@ -52,7 +52,7 @@ namespace KTrackPlus.Helpers.Client
 
             if (Common.CurrentAppMode != Common.AppMode.Server)
             {
-
+                
                 var prefCat = new AndroidX.Preference.PreferenceCategory(Context);
                 prefCat.Title = "General settings";
                 PreferenceScreen.AddPreference(prefCat);
