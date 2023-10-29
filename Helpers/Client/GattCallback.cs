@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Android.Renderscripts.Sampler;
 
 namespace KTrackPlus.Helpers.Client
 {
@@ -91,10 +92,42 @@ namespace KTrackPlus.Helpers.Client
                 Console.WriteLine("Unable to get write charac, try to disable/enable bluetooth");
                 return;
             }
+            var notifCarac = service.GetCharacteristic(Common.DEVICE_UUID_CHAR_NOTIFY);
+            if (notifCarac == null)
+            {
+                Console.WriteLine("Unable to get notification charac, try to disable/enable bluetooth");
+                return;
+            }
+            var descriptor = notifCarac.GetDescriptor(Common.CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR_UUID);
+            if (descriptor == null)
+            {
+                Console.WriteLine("Unable to get notification charac, try to disable/enable bluetooth");
+                return;
+            }
             ClientManager.Get.CharacteristicWrite = carach;
-            ClientManager.Get.mGatt = gatt;
-            ClientManager.Get.readyToSend = true;
-            KTrackService.ChangeNotifIcon(Resource.Drawable.ic_stat_fiber_smart_record);
+            gatt.SetCharacteristicNotification(notifCarac, true);
+            descriptor.SetValue(BluetoothGattDescriptor.EnableNotificationValue.ToArray());
+            gatt.WriteDescriptor(descriptor);            
+        }
+
+        public override void OnDescriptorWrite(BluetoothGatt? gatt, BluetoothGattDescriptor? descriptor, [GeneratedEnum] GattStatus status)
+        {
+            base.OnDescriptorWrite(gatt, descriptor, status);
+            //if (descriptor != null && descriptor.Uuid == Common.CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR_UUID)
+            //{
+
+                if (status == GattStatus.Success)
+                {
+                    Console.WriteLine("Notifications enabled");
+                    ClientManager.Get.mGatt = gatt;
+                    ClientManager.Get.readyToSend = true;
+                    KTrackService.ChangeNotifIcon(Resource.Drawable.ic_stat_fiber_smart_record);
+                }
+                else
+                {
+                    Console.WriteLine("Unable to enable notifications");
+                }
+            //}
         }
 
         public override void OnMtuChanged(BluetoothGatt? gatt, int mtu, [GeneratedEnum] GattStatus status)
@@ -112,6 +145,29 @@ namespace KTrackPlus.Helpers.Client
             }
         }
 
+        public override void OnCharacteristicChanged(BluetoothGatt? gatt, BluetoothGattCharacteristic? characteristic)
+        {
+            base.OnCharacteristicChanged(gatt, characteristic);
+            try
+            {
+                var value = characteristic.GetValue();
+                if (value != null && value.Length > 0)
+                {
+                    switch (value[0])
+                    {
+                        case 6:
+                            ClientManager.Get.ServerSignalStrength = BitConverter.ToInt32(value, 1);
+                            Console.WriteLine("S:" + ClientManager.Get.ServerSignalStrength);
+                            break;
+                    }
+                }
+            }
+            catch
+            {
+                Console.WriteLine("OnCharacteristicChanged crash");
+            }
+            //Console.WriteLine("Notif2 : " + characteristic.GetValue());
+        }
 
         public override void OnCharacteristicWrite(BluetoothGatt? gatt, BluetoothGattCharacteristic? characteristic, [GeneratedEnum] GattStatus status)
         {

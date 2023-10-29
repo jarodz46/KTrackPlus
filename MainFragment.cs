@@ -56,9 +56,14 @@ namespace KTrackPlus
                             {                                
                                 maintActivity.RunOnUiThread(() =>
                                 {
-                                    ClientManager.Get.Start();
+                                    ClientManager.Get.Start();                                    
                                 });
                             }
+                            maintActivity.RunOnUiThread(() =>
+                            {
+                                startBut.Enabled = true;
+                                startMailBut.Enabled = true;
+                            });
                         }).Start();
                     };
 

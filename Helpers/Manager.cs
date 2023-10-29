@@ -1,4 +1,5 @@
 ﻿using Android.Content;
+using Android.Telephony;
 using Dynastream.Fit;
 using Java.Util;
 using MessagePack;
@@ -32,6 +33,7 @@ namespace KTrackPlus.Helpers
         protected abstract void InternalStop();
         protected abstract void TimerTask();
         protected abstract void InternalReset();
+        protected abstract void FastTimerTask();
 
         public Manager(Context context)
         {
@@ -57,9 +59,9 @@ namespace KTrackPlus.Helpers
                 if (result && timer == null)
                 {
                     var strInterval = Preferences.Get("updateInterval", "30");
-                    var interval = int.Parse(strInterval);
+                    UpdateInterval = int.Parse(strInterval);
                     timer = new Java.Util.Timer();
-                    timer.Schedule(new Task(this), 1000, 1000 * interval);
+                    timer.Schedule(new Task(this), 1000, 1000);
                 }
                 IsRunning = result;
                 return result;
@@ -84,11 +86,11 @@ namespace KTrackPlus.Helpers
 
         public bool AskStopTask { get; set; } = false;
 
+        public int UpdateInterval { get; set; } = 30;
+
         public void ChangeInterval(int seconds)
         {
-            StopTimer();
-            timer = new Java.Util.Timer();
-            timer.Schedule(new Task(this), 1000, seconds * 1000);
+            UpdateInterval = seconds;
         }
 
         void StopTimer()
@@ -119,6 +121,7 @@ namespace KTrackPlus.Helpers
             }
         }
 
+       
         class Task : TimerTask
         {
             Manager manager;
@@ -127,14 +130,20 @@ namespace KTrackPlus.Helpers
             {
                 this.manager = manager;
             }
-
+            int lastTaskTT = 0;
             public override void Run()
             {
                 manager.taskIsRunning = true;
                 manager.AskStopTask = false;
                 try
                 {
-                    manager.TimerTask();
+                    manager.FastTimerTask();
+                    var ttOffset = Environment.TickCount - lastTaskTT;
+                    if (ttOffset >= manager.UpdateInterval * 1000)
+                    {
+                        manager.TimerTask();
+                        lastTaskTT = Environment.TickCount;
+                    }
                 }
                 catch (Exception e)
                 {
@@ -157,12 +166,42 @@ namespace KTrackPlus.Helpers
         internal const string apiUrl = "https://track.lazyjarod.com/";
         internal bool? internetStatus = null;
 
+        internal int SignalStrength { get; set; } = 4;
+
         internal bool checkInternet()
         {
             internetStatus = Connectivity.NetworkAccess == NetworkAccess.Internet;
             if (internetStatus != true)
                 return false;
             return true;
+        }
+
+        public int GetInternetLevel()
+        {
+            int newVal = -1;
+            if (Connectivity.NetworkAccess == NetworkAccess.Internet)
+            {
+                if (mContext.CheckSelfPermission(Android.Manifest.Permission.ReadPhoneState) == Android.Content.PM.Permission.Granted)
+                {
+                    try
+                    {
+                        var tm = mContext.GetSystemService(Context.TelephonyService) as TelephonyManager;
+                        if (tm != null && tm.SignalStrength != null)
+                            newVal = tm.SignalStrength.Level;
+                        if (tm != null && tm.NetworkType == NetworkType.Edge)
+                            newVal = 0;
+                    }
+                    catch
+                    {
+                        newVal = 4;
+                    }
+                }
+                else
+                {
+                    newVal = 4;
+                }
+            }
+            return newVal;
         }
 
         internal async Task<bool> TryAskResetToAPI()
@@ -233,24 +272,7 @@ namespace KTrackPlus.Helpers
             Stats.updated = true;
             return await sendToAPI("locations", new LocationsPack(locs));
         }
-
-        
-
-        public class MailInfos
-        {
-            public string mail { get; set; }
-            public string name { get; set; }
-            public string locale { get; set; } = "en";
-
-            public MailInfos(string mail, string name, string locale)
-            {
-                this.mail = mail;
-                this.name = name;
-                this.locale = locale;
-            }
-
-
-        }
+                
 
         internal async Task<bool> SendMails()
         {
@@ -262,7 +284,7 @@ namespace KTrackPlus.Helpers
                 if (splitedMail.Length == 2 && splitedMail[0].Length > 0 && splitedMail[1].Length > 0 && splitedMail[1].Contains('.'))
                 {
                     Console.WriteLine("Try send mail to " + mail);
-                    if (!await sendToAPI("mail", new MailInfos(mail, Settings.Name, locale), "sendmail.php"))
+                    if (!await sendToAPI("mail", new MailInfos(mail, Settings.Name, locale), "sendmail2.php"))
                     {
                         result = false;
                         break;
@@ -302,7 +324,7 @@ namespace KTrackPlus.Helpers
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    //Console.WriteLine(e);
                     result = false;
                 }
                 if (result)

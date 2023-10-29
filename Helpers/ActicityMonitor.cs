@@ -53,6 +53,8 @@ namespace KTrackPlus.Helpers
                     {
                         if (!KTrackService.isRunning)
                             checkActivityTimer.Stop();
+                        if (KTrackService.UsedManager.IsRunning)
+                            return;
                         try
                         {
                                 

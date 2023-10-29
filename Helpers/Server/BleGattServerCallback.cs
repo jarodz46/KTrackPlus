@@ -64,7 +64,10 @@ namespace KTrackPlus.Helpers.Server
         public override void OnConnectionStateChange(BluetoothDevice device, ProfileState status, ProfileState newState)
         {
             Console.WriteLine("State changed to {0}", newState);
-
+            if (newState == ProfileState.Connected)
+                ServerManager.Get.ConnectedDevice = device;
+            else
+                ServerManager.Get.ConnectedDevice = null;
 
         }
 

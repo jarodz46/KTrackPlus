@@ -1,5 +1,6 @@
 ﻿using Android.Bluetooth;
 using Android.Content;
+using Android.Content.PM;
 using Android.Content.Res;
 using Android.Preferences;
 using Android.Runtime;
@@ -167,6 +168,18 @@ namespace KTrackPlus.Helpers.Client
             serviceOnBoot.SetDefaultValue(true);
             prefCat2.AddPreference(serviceOnBoot);
 
+            if (Common.CurrentAppMode == Common.AppMode.Server)
+            {
+                var sendInternetStatus = new AndroidX.Preference.SwitchPreference(Context);
+                sendInternetStatus.Title = "Send internet status to client";
+                sendInternetStatus.Key = "sendInternetStatus";
+                sendInternetStatus.SetDefaultValue(false);
+                sendInternetStatus.PreferenceChange += SendInternetStatus_PreferenceChange;
+                if (Context.CheckSelfPermission(Android.Manifest.Permission.ReadPhoneState) != Permission.Granted)
+                    Xamarin.Essentials.Preferences.Set("sendInternetStatus", false);
+                prefCat2.AddPreference(sendInternetStatus);
+            }
+
             if (Common.CurrentAppMode != Common.AppMode.Server)
             {
 
@@ -197,8 +210,52 @@ namespace KTrackPlus.Helpers.Client
                 locProvider.SummaryProvider = AndroidX.Preference.ListPreference.SimpleSummaryProvider.Instance;
                 prefCat2.AddPreference(locProvider);
 
+                if (Common.IsKarooDevice && Common.CurrentAppMode == Common.AppMode.Client)
+                {
+                    clientServerBehavior = new AndroidX.Preference.ListPreference(Context);
+                    clientServerBehavior.Title = "Client/Server Behavior";
+                    clientServerBehavior.Key = "clientServerBehavior";
+                    clientServerBehavior.SetDefaultValue("always");
+                    clientServerBehavior.SetEntries(new[] { "Always send data to server", "Try to send data direclty if server connection is weak", "Try to send data directly if server connection is lost" });
+                    clientServerBehavior.SetEntryValues(new[] { "always", "onweak", "onlost" });
+                    clientServerBehavior.SummaryProvider = AndroidX.Preference.ListPreference.SimpleSummaryProvider.Instance;
+                    clientServerBehavior.PreferenceChange += ClientServerBehavior_PreferenceChange;
+                    if (Context.CheckSelfPermission(Android.Manifest.Permission.ReadPhoneState) != Permission.Granted)
+                    {
+                        Xamarin.Essentials.Preferences.Set("clientServerBehavior", "always");
+                    }
+                    prefCat2.AddPreference(clientServerBehavior);
+                }
+
             }
 
+        }
+
+        private void SendInternetStatus_PreferenceChange(object? sender, AndroidX.Preference.Preference.PreferenceChangeEventArgs e)
+        {
+            if (Context.CheckSelfPermission(Android.Manifest.Permission.ReadPhoneState) != Permission.Granted)
+            {
+                Common.ShowAlert(Context, "Next request permission is requierd to get device internet status, you need to enable this permission on server device too", delegate
+                {
+                    RequestPermissions([Android.Manifest.Permission.ReadPhoneState], 1337);
+                });
+            }
+        }
+
+        AndroidX.Preference.ListPreference clientServerBehavior;
+
+        private void ClientServerBehavior_PreferenceChange(object? sender, AndroidX.Preference.Preference.PreferenceChangeEventArgs e)
+        {
+            if (e.NewValue.ToString() == "always")
+                return;
+            if (Context.CheckSelfPermission(Android.Manifest.Permission.ReadPhoneState) != Permission.Granted)
+            {
+                clientServerBehavior.Value = "always";
+                Common.ShowAlert(Context, "Next request permission is requierd to get device internet status, you need to enable this permission on server device too", delegate
+                {
+                    RequestPermissions([Android.Manifest.Permission.ReadPhoneState], 1337);
+                });
+            }
         }
 
         private void RelayName_PreferenceChange(object? sender, AndroidX.Preference.Preference.PreferenceChangeEventArgs e)

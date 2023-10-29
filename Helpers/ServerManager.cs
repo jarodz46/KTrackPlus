@@ -16,6 +16,9 @@ using System.Globalization;
 using Android.Health.Connect.DataTypes.Units;
 using KTrackPlus.Helpers.Client;
 using KTrackPlus.Helpers.Server;
+using Java.Security;
+using Android.Telephony;
+using Android.Net;
 
 namespace KTrackPlus.Helpers
 {
@@ -55,12 +58,16 @@ namespace KTrackPlus.Helpers
         private BluetoothGattDescriptor? _descriptorNotify;
         private Server.BleAdvertiseCallback _bleAdvertiseCallback;
         BluetoothLeAdvertiser? _BluetoothLeAdvertiser;
+        public BluetoothDevice? ConnectedDevice { get; internal set; }
         ServerBluetoothReceiver bluetoothReceiver { get; set; }
+        bool sendInternetStatus = false;
 
         protected override bool InternalStart()
         {
             _bluetoothManager = (BluetoothManager)mContext.GetSystemService(Context.BluetoothService);
             _bluetoothAdapter = _bluetoothManager?.Adapter;
+
+            sendInternetStatus = Preferences.Get("sendInternetStatus", false);
 
             if (_bluetoothAdapter == null)
             {
@@ -125,6 +132,7 @@ namespace KTrackPlus.Helpers
         internal void StopServer()
         {
             //_bluetoothServer?.ClearServices();
+            
             _bluetoothServer?.Close();
            
         }
@@ -161,6 +169,7 @@ namespace KTrackPlus.Helpers
 
         protected override void InternalStop()
         {
+
             new Task(() =>
             {
                 MainThread.BeginInvokeOnMainThread(() =>
@@ -175,27 +184,36 @@ namespace KTrackPlus.Helpers
 
         protected override void InternalReset()
         {
-            
         }
 
-
-        int receiveCount = 0;
+        bool updateServerStatus()
+        {
+            int newVal = GetInternetLevel();
+            if (newVal != SignalStrength)
+            {
+                SignalStrength = newVal;
+                return true;
+            }
+            return false;
+        }
 
         internal int updateInterval = 30;
         bool waitForId = false;
-        
-        NumberFormatInfo nfi = new NumberFormatInfo()
+
+        protected override void FastTimerTask()
         {
-            NumberDecimalSeparator = "."
-        };
+            if (sendInternetStatus && ConnectedDevice != null && updateServerStatus())
+            {
+                var singalStrengthBytes = BitConverter.GetBytes(SignalStrength);
+                var message = new byte[] { 6 }.Concat(singalStrengthBytes);
+                _characteristicNotify.SetValue(message.ToArray());
+                _bluetoothServer.NotifyCharacteristicChanged(ConnectedDevice, _characteristicNotify, false);
+            }
+        }
 
         async protected override void TimerTask()
         {
-            if (receiveCount > 0)
-            {
-                //Console.WriteLine(receiveCount + " locations received");
-                receiveCount = 0;
-            }
+                       
 
             if (string.IsNullOrEmpty(UsedId))
             {
@@ -206,6 +224,9 @@ namespace KTrackPlus.Helpers
                 }
                 return;
             }
+
+            if (ConnectedDevice == null)
+                return;
 
             if (!checkInternet())
                 return;

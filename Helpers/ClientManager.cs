@@ -91,12 +91,13 @@ namespace KTrackPlus.Helpers
                 locations.Add(newLoc);
             }
         }
-
+        string clientServerBehavior = string.Empty;
         protected override bool InternalStart()
         {
             if (IsRunning)
                 return true;
             locProvider = Preferences.Get("locationsProvider", Common.IsKarooDevice ? "current" : "gps");
+            clientServerBehavior = Preferences.Get("clientServerBehavior", "always");
 
             var mintDistStr = Preferences.Get("minDistance", "3");
             minDistance = int.Parse(mintDistStr);
@@ -389,11 +390,20 @@ namespace KTrackPlus.Helpers
             }
         }
 
+        protected override void FastTimerTask()
+        {
+        }
+
+        public int ServerSignalStrength { get; set; } = 4;
+
+        bool sendDirectlyShowed = false;
         bool unableResetShowed = false;
+        bool waitForInternetShowed = false;
         protected override async void TimerTask()
         {
             try
             {
+                SignalStrength = GetInternetLevel();
                 if (Common.CurrentAppMode == Common.AppMode.Client && !readyToSend)
                     return;
                 if (AskForReset)
@@ -535,7 +545,38 @@ namespace KTrackPlus.Helpers
                 else
                 { // GPS Provider
                 }
-                if (Common.CurrentAppMode == Common.AppMode.Client)
+                var sendToRelay = Common.CurrentAppMode == Common.AppMode.Client;
+                var minSignalStrength = 1; // onweak
+                if (clientServerBehavior == "onlost")
+                    minSignalStrength = 0;
+                if (sendToRelay && clientServerBehavior != "always" && ServerSignalStrength < minSignalStrength)
+                {
+                    SignalStrength = GetInternetLevel();
+                    if (SignalStrength == -1 && ServerSignalStrength == -1)
+                    {
+                        if (!waitForInternetShowed)
+                        {
+                            Console.WriteLine("No internet connection available on client and server");
+                            waitForInternetShowed = true;
+                        }
+                        return;
+                    }
+                    if (SignalStrength > ServerSignalStrength)
+                    {
+                        if (!sendDirectlyShowed)
+                        {
+                            Console.WriteLine("Bad server connection, send direclty...");
+                            sendDirectlyShowed = true;
+                        }
+                        sendToRelay = false;
+                    }
+                }
+                else
+                {
+                    waitForInternetShowed = false;
+                    sendDirectlyShowed = false;
+                }
+                if (sendToRelay)
                 {
                     #region send to relay
                     int sendCount = 0;
@@ -604,7 +645,7 @@ namespace KTrackPlus.Helpers
                     }
                     #endregion 
                 }
-                if (Common.CurrentAppMode == Common.AppMode.Standalone)
+                else
                 {
                     #region send directly
                     if (!checkInternet())

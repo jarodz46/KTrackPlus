@@ -16,6 +16,8 @@ using static Java.Util.Jar.Attributes;
 using Android.App;
 using Java.IO;
 using Console = System.Console;
+using Android.Net;
+using Android.Telephony;
 
 namespace KTrackPlus
 {
@@ -209,7 +211,12 @@ namespace KTrackPlus
             }
 
             var permissions = new List<string>();
-            
+
+            if (CheckSelfPermission(Android.Manifest.Permission.ReadPhoneState) != Android.Content.PM.Permission.Granted)
+            {
+                permissions.Add(Android.Manifest.Permission.ReadPhoneState);
+            }
+
             if (Common.CurrentAppMode == Common.AppMode.Server)
             {
                
@@ -482,11 +489,14 @@ namespace KTrackPlus
 
                 Get = this;
 
+                
+
                 var statusView = FindViewById<TextView>(Resource.Id.sync_status);
                 var statusLabel = FindViewById<TextView>(Resource.Id.sync_led);
 
-                if (statusView != null)
+                if (statusView != null && statusLabel != null)
                 {
+                    
                     refreshUITimer.Elapsed += delegate
                     {
                         RunOnUiThread(() =>
@@ -497,6 +507,7 @@ namespace KTrackPlus
                             {
                                 //var usedData = Common.GetAppNetworkUsage(this, KTrackService.StartTime, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                                 //statusLabel.Text = "Status : data usage : " + usedData;
+                                statusLabel.Text = "Status :    internet : " + KTrackService.UsedManager.SignalStrength;
                                 if (Common.CurrentAppMode == Common.AppMode.Client)
                                 {
                                     var manager = ClientManager.Get;
