@@ -198,7 +198,7 @@ namespace KTrackPlus.Helpers.Client
             if (newState == ProfileState.Connected)
             {
                 Console.WriteLine("Sucessful connected to : " + gatt.Device.Name);
-                gatt.RequestMtu(512);
+                gatt.RequestMtu(236);
             }
             if (newState == ProfileState.Disconnected)
             {

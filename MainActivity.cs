@@ -143,6 +143,9 @@ namespace KTrackPlus
                         Console.WriteLine(e);
                     }
                     break;
+                //case Resource.Id.crash:
+                //    KTrackService.UsedManager.crash = true;
+                //    break;
             }
             
             return base.OnOptionsItemSelected(item);
@@ -409,7 +412,6 @@ namespace KTrackPlus
                 HandleIntent();
 
                 SetContentView(Resource.Layout.main_layout);
-
                 Common.CheckAppMode();
 
                 

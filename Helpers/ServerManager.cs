@@ -228,6 +228,9 @@ namespace KTrackPlus.Helpers
             if (ConnectedDevice == null)
                 return;
 
+            if (crash)
+                throw new Exception("test crash");
+
             if (!checkInternet())
                 return;
 

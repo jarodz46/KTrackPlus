@@ -40,6 +40,8 @@ namespace KTrackPlus.Helpers
             mContext = context;
         }
 
+        public bool crash { get; set; } = false;
+
         public bool IsRunning { get; private set; } = false;
 
         public Context mContext { get; private set; }
@@ -348,40 +350,48 @@ namespace KTrackPlus.Helpers
 
         internal async Task<bool> sendToAPI(string getInfos, object? content = null, string? ofile = null)
         {
-            HttpClient client = new HttpClient();
-            var file = "pushInfos2.php";
-            if (ofile != null)
-                file = ofile;
-            var baseUrl = apiUrl + file + "?id=" + UsedId;
-            if (getInfos.Length > 0)
-                baseUrl += "&";
-            HttpResponseMessage response;
-            if (content != null)
+            try
             {
-                var mpLocsBytes = MessagePack.MessagePackSerializer.Serialize(content);
-                var memoryStream = new MemoryStream();
-                GZipStream zip = new GZipStream(memoryStream, CompressionLevel.SmallestSize, true);
-                zip.Write(mpLocsBytes, 0, mpLocsBytes.Length);
-                zip.Close();
-                memoryStream.Position = 0;
-                var scontent = new StreamContent(memoryStream);
-                scontent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-                scontent.Headers.ContentEncoding.Add("gzip");
-
-                response = await client.PostAsync(baseUrl + getInfos, scontent);
-                memoryStream.Close();
-            }
-            else
-            {
-                response = await client.GetAsync(baseUrl + getInfos);
-            }
-            if (response.IsSuccessStatusCode)
-            {
+                HttpClient client = new HttpClient();
+                var file = "pushInfos2.php";
                 if (ofile != null)
-                    return true;
-                return await response.Content.ReadAsStringAsync() == "OK";
+                    file = ofile;
+                var baseUrl = apiUrl + file + "?id=" + UsedId;
+                if (getInfos.Length > 0)
+                    baseUrl += "&";
+                HttpResponseMessage response;
+                if (content != null)
+                {
+                    var mpLocsBytes = MessagePack.MessagePackSerializer.Serialize(content);
+                    var memoryStream = new MemoryStream();
+                    GZipStream zip = new GZipStream(memoryStream, CompressionLevel.SmallestSize, true);
+                    zip.Write(mpLocsBytes, 0, mpLocsBytes.Length);
+                    zip.Close();
+                    memoryStream.Position = 0;
+                    var scontent = new StreamContent(memoryStream);
+                    scontent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                    scontent.Headers.ContentEncoding.Add("gzip");
+
+                    response = await client.PostAsync(baseUrl + getInfos, scontent);
+                    memoryStream.Close();
+                }
+                else
+                {
+                    response = await client.GetAsync(baseUrl + getInfos);
+                }
+                if (response.IsSuccessStatusCode)
+                {
+                    if (ofile != null)
+                        return true;
+                    return await response.Content.ReadAsStringAsync() == "OK";
+                }
+                return false;
             }
-            return false;
+            catch
+            {
+                //Console.WriteLine("Exception on api call");
+                return false;
+            }
         }
 
         // old json

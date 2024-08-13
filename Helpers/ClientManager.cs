@@ -406,7 +406,7 @@ namespace KTrackPlus.Helpers
                 SignalStrength = GetInternetLevel();
                 if (Common.CurrentAppMode == Common.AppMode.Client && !readyToSend)
                     return;
-                if (AskForReset)
+                if (settingsSent && AskForReset)
                 {
                     if ((Common.CurrentAppMode != Common.AppMode.Client && !checkInternet())|| !await ResetRequest())
                     {
@@ -609,7 +609,7 @@ namespace KTrackPlus.Helpers
                                     sendCount++;
                                     count++;
                                 }
-                                if (count >= 30)
+                                if (count >= 13)
                                 {
                                     break;
                                 }

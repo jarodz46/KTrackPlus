@@ -90,7 +90,7 @@ namespace KTrackPlus
         static Context? context;
 
         internal static long StartTime { get; set; } = 0;
-        
+
 
         static NotificationCompat.Builder notificationBuilder;
         [return: GeneratedEnum]
@@ -98,8 +98,13 @@ namespace KTrackPlus
         {
             context = this;
 
-            
-            
+            isRunning = false;
+            Common.CheckAppMode();
+
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+            TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+            AndroidEnvironment.UnhandledExceptionRaiser += AndroidEnvironment_UnhandledExceptionRaiser;
+
 
             if (!createNotificationChannel())
             {
@@ -174,6 +179,21 @@ namespace KTrackPlus
 
         end:
             return base.OnStartCommand(intent, flags, startId);
+        }
+
+        private void AndroidEnvironment_UnhandledExceptionRaiser(object? sender, RaiseThrowableEventArgs e)
+        {
+            Console.WriteLine(e.ToString());
+        }
+
+        private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            Console.WriteLine(e.Exception.Message);
+        }
+
+        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            Console.WriteLine(e.ToString());
         }
 
         const string channel_id = "karoobletrack";

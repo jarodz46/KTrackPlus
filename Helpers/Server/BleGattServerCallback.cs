@@ -56,7 +56,7 @@ namespace KTrackPlus.Helpers.Server
 
             if (responseNeeded)
             {
-                ServerManager.Get._bluetoothServer.SendResponse(device, requestId, GattStatus.Success, offset, []);
+                ServerManager.Get._bluetoothServer.SendResponse(device, requestId, resultStatus, offset, []);
             }
 
         }
