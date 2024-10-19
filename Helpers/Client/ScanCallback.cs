@@ -16,13 +16,14 @@ namespace KTrackPlus.Helpers.Client
         public override void OnScanResult([GeneratedEnum] ScanCallbackType callbackType, ScanResult? result)
         {
             base.OnScanResult(callbackType, result);
-
             var name = result?.Device?.Name;
-            if (!string.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(name))
+                name = result?.Device?.Address?.ToString();
+            if (result != null && result.IsConnectable)
             {
+                Console.WriteLine("Found a device : " + name);
                 ClientManager.Get.DeviceAdress = result?.Device?.Address;
                 ClientManager.Get.scanner?.StopScan(ClientManager.Get.scanCallback);
-                Console.WriteLine("Found a device : " + name);
                 var gatt = result?.Device?.ConnectGatt(ClientManager.Get.mContext, false, ClientManager.Get.GattHelper, BluetoothTransports.Le);
                 if (gatt == null)
                 {

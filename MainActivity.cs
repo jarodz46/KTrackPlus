@@ -251,10 +251,48 @@ namespace KTrackPlus
                 }
                 else
                 {
+                    if (Common.IsKarooDevice && sdk >= 31 && !Android.OS.Environment.IsExternalStorageManager)
+                    {
+                        var line2 = "";
+                        string message = "You need to enable access to device files, it's required to app to be able to read the current activity" +
+                                System.Environment.NewLine + line2;
+
+                        ShowAlert(message,
+                            () =>
+                            {
+                                //Toast.MakeText(this, line2, ToastLength.Long)?.Show();
+                                var intent = new Android.Content.Intent(Android.Provider.Settings.ActionManageAppAllFilesAccessPermission);
+                                intent.SetData(Android.Net.Uri.FromParts("package", PackageName, null));
+                                StartActivity(intent);
+                            });
+                        return false;
+                    }
+                    if (CheckSelfPermission(Android.Manifest.Permission.AccessCoarseLocation) != Android.Content.PM.Permission.Granted)
+                    {
+                        permissions.Add(Android.Manifest.Permission.AccessCoarseLocation);
+                    }
+                    if (CheckSelfPermission(Android.Manifest.Permission.AccessFineLocation) != Android.Content.PM.Permission.Granted)
+                    {
+                        permissions.Add(Android.Manifest.Permission.AccessFineLocation);
+                    }
+                    if (CheckSelfPermission(Android.Manifest.Permission.BluetoothConnect) != Android.Content.PM.Permission.Granted)
+                    {
+                        permissions.Add(Android.Manifest.Permission.BluetoothConnect);
+                    }
+                    if (CheckSelfPermission(Android.Manifest.Permission.BluetoothScan) != Android.Content.PM.Permission.Granted)
+                    {
+                        permissions.Add(Android.Manifest.Permission.BluetoothScan);
+                    }
                     if (CheckSelfPermission(Android.Manifest.Permission.ReadExternalStorage) != Android.Content.PM.Permission.Granted)
                     {
                         permissions.Add(Android.Manifest.Permission.ReadExternalStorage);
                     }
+                    if (CheckSelfPermission(Android.Manifest.Permission.WriteExternalStorage) != Android.Content.PM.Permission.Granted)
+                    {
+                        permissions.Add(Android.Manifest.Permission.WriteExternalStorage);
+                    }
+
+                    
                 }
             }
             if (permissions.Count > 0)
@@ -363,7 +401,7 @@ namespace KTrackPlus
         public bool SetService(bool state)
         {
             if (KTrackService.isRunning == state) return true;
-            var intent = new Android.Content.Intent(this, typeof(KTrackService));
+            
             var tc = System.Environment.TickCount;
             if (state)
             {
@@ -385,6 +423,7 @@ namespace KTrackPlus
             else
             {
                 Console.WriteLine("Try to stop service");
+                var intent = new Android.Content.Intent(this, typeof(KTrackService));
                 StopService(intent);
                 while (KTrackService.isRunning)
                 {
