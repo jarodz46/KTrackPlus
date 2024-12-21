@@ -18,6 +18,7 @@ using Java.IO;
 using Console = System.Console;
 using Android.Net;
 using Android.Telephony;
+using Java.Interop;
 
 namespace KTrackPlus
 {
@@ -399,12 +400,37 @@ namespace KTrackPlus
 
         internal static MainActivity? Get { get; private set; }
 
+        class Func1 : Java.Lang.Object, Kotlin.Jvm.Functions.IFunction1
+        {
+
+            private readonly Action<bool> _callback;
+
+            public Func1(Action<bool> callback)
+            {
+                _callback = callback;
+            }
+
+            public Java.Lang.Object? Invoke(Java.Lang.Object? p0)
+            {
+                // Convertir l'argument en Boolean
+                if (p0 is Java.Lang.Boolean booleanArg)
+                {
+                    _callback?.Invoke(booleanArg.BooleanValue());
+                }
+                return null; // Retourner `null` (équivalent à Kotlin's Unit)
+            }
+        }
+
+        IO.Hammerhead.Karooext.KarooSystemService karooSystemService;
+
         protected override void OnCreate(Bundle? savedInstanceState)
         {
 
             try
             {
                 base.OnCreate(savedInstanceState);
+
+
                 Platform.Init(this, savedInstanceState);
 
                 Console.SetOut(writer);
@@ -470,17 +496,30 @@ namespace KTrackPlus
                     {
                         fixBut.Click += delegate
                         {
-                            var line2 = "Battery optimization->All apps->KTrackPlus->Don't optimize";
-                            string message = "You need to disable battery optimization to avoid background issues" +
-                                    System.Environment.NewLine + line2;
-
-                            ShowAlert(message,
-                                () =>
+                            Action<bool> act = delegate (bool connected) {
+                                if (connected)
                                 {
-                                    Toast.MakeText(this, line2, ToastLength.Long)?.Show();
-                                    var intent = new Android.Content.Intent(Android.Provider.Settings.ActionIgnoreBatteryOptimizationSettings);
-                                    StartActivity(intent);
-                                });
+                                    var style = IO.Hammerhead.Karooext.Models.SystemNotification.Style.Event;
+                                    var notif = new IO.Hammerhead.Karooext.Models.SystemNotification("ktp", "Test", "subtest", "headertest", style, null, null);
+                                    Console.WriteLine(karooSystemService.Dispatch(notif));
+                                    var ble = new IO.Hammerhead.Karooext.Models.RequestBluetooth("ktrackble");
+                                    Console.WriteLine(karooSystemService.Dispatch(ble));
+                                }
+                            };
+
+                            karooSystemService = new IO.Hammerhead.Karooext.KarooSystemService(this);
+                            karooSystemService.Connect(new Func1(act));
+                            //var line2 = "Battery optimization->All apps->KTrackPlus->Don't optimize";
+                            //string message = "You need to disable battery optimization to avoid background issues" +
+                            //        System.Environment.NewLine + line2;
+
+                            //ShowAlert(message,
+                            //    () =>
+                            //    {
+                            //        Toast.MakeText(this, line2, ToastLength.Long)?.Show();
+                            //        var intent = new Android.Content.Intent(Android.Provider.Settings.ActionIgnoreBatteryOptimizationSettings);
+                            //        StartActivity(intent);
+                            //    });
                         };
                     }
                 }

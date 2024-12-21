@@ -352,6 +352,7 @@ namespace KTrackPlus.Helpers
         {
             try
             {
+                
                 HttpClient client = new HttpClient();
                 var file = "pushInfos2.php";
                 if (ofile != null)
