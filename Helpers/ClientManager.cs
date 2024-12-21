@@ -260,16 +260,27 @@ namespace KTrackPlus.Helpers
             Console.WriteLine("Look for ble server...");
 
             var relay = Preferences.Get("blerelay", "auto");
-            if (relay != "auto" && adapter?.BondedDevices != null)
+            if (adapter?.BondedDevices != null)
             {
-                foreach (var device in adapter.BondedDevices)
+                if (relay != "auto")
                 {
-                    if (device.Address != null && device.Address == relay)
+                    foreach (var device in adapter.BondedDevices)
                     {
-                        GattCallback.firstCo = true;
-                        Console.WriteLine("Connect to " + device.Name + "...");
-                        mGatt = device.ConnectGatt(mContext, false, GattHelper, BluetoothTransports.Le);
-                        return;
+                        if (device.Address != null && device.Address == relay)
+                        {
+                            GattCallback.firstCo = true;
+                            Console.WriteLine("Connect to " + device.Name + "...");
+                            mGatt = device.ConnectGatt(mContext, false, GattHelper, BluetoothTransports.Le);
+                            return;
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("bonded devices : ");
+                    foreach (var device in adapter.BondedDevices)
+                    {
+                        Console.WriteLine(device.Name);
                     }
                 }
             }
@@ -334,6 +345,7 @@ namespace KTrackPlus.Helpers
 
             if (directory.Exists)
             {
+                
                 dirNotFoundShowed = false;
                 var now = System.DateTime.Now;
                 var prevDate = now.AddHours(-48);
@@ -609,7 +621,7 @@ namespace KTrackPlus.Helpers
                                     sendCount++;
                                     count++;
                                 }
-                                if (count >= 13)
+                                if (count >= 11)
                                 {
                                     break;
                                 }

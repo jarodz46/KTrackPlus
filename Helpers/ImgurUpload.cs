@@ -67,6 +67,10 @@ namespace KTrackPlus.Helpers
                         ImgurInfo? result = null;
                         try
                         {
+                            lock (toSend)
+                            {
+                                toSend.Remove(infos);
+                            }
                             result = await UploadToImgur(infos);
                         }
                         catch
@@ -75,16 +79,17 @@ namespace KTrackPlus.Helpers
                         }
                         if (result == null)
                         {
+                            lock (toSend)
+                            {
+                                toSend.Add(infos);
+                            }
                             KTrackService.UsedManager.LastError = "Fail to send picture, try again later...";
                             System.Console.WriteLine(KTrackService.UsedManager.LastError);
                             return;
                         }
                         else
                         {
-                            lock (toSend)
-                            {
-                                toSend.Remove(infos);
-                            }
+                            
                             var imageUrl = result.Original;
                             var tt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                             var fileDateTime = GetImageDateTimeFromStream(infos.GetStream());

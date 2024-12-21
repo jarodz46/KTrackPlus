@@ -128,15 +128,18 @@ namespace KTrackPlus.Helpers.Client
                     relayName.SetDefaultValue("auto");
                     var entries = new List<string>(["First Found"]);
                     var values = new List<string>(["auto"]);
-                    var adapter = BluetoothAdapter.DefaultAdapter;
-                    if (adapter?.BondedDevices != null)
+                    if (Activity != null && Activity.CheckSelfPermission(Android.Manifest.Permission.BluetoothConnect) == Permission.Granted)
                     {
-                        foreach (var device in adapter.BondedDevices)
+                        var adapter = BluetoothAdapter.DefaultAdapter;
+                        if (adapter?.BondedDevices != null)
                         {
-                            if (device.Name != null && device.Address != null)
+                            foreach (var device in adapter.BondedDevices)
                             {
-                                entries.Add(device.Name);
-                                values.Add(device.Address);
+                                if (device.Name != null && device.Address != null)
+                                {
+                                    entries.Add(device.Name);
+                                    values.Add(device.Address);
+                                }
                             }
                         }
                     }
