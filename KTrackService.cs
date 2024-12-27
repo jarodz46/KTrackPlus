@@ -1,9 +1,17 @@
 ﻿using Android.Content;
+using Android.Hardware.Camera2;
 using Android.OS;
 using Android.Runtime;
 using Android.Views;
 using AndroidX.Core.App;
 using AndroidX.VersionedParcelable;
+using IO.Hammerhead.Karooext;
+using IO.Hammerhead.Karooext.Aidl;
+using IO.Hammerhead.Karooext.Internal;
+using IO.Hammerhead.Karooext.Models;
+using Java.Util;
+using Kotlin.Jvm.Functions;
+using Kotlin.Uuid;
 using KTrackPlus.Helpers;
 using KTrackPlus.Helpers.Client;
 using System;
@@ -91,7 +99,12 @@ namespace KTrackPlus
 
         internal static long StartTime { get; set; } = 0;
 
+        
 
+        
+
+
+        internal static KarooSystemService? karooSystemService { get; set; }
         static NotificationCompat.Builder notificationBuilder;
         [return: GeneratedEnum]
         public override StartCommandResult OnStartCommand(Intent? intent, [GeneratedEnum] StartCommandFlags flags, int startId)
@@ -100,6 +113,36 @@ namespace KTrackPlus
 
             isRunning = false;
             Common.CheckAppMode();
+
+            if (Common.IsKarooDevice)
+            {
+                
+                Action<bool> act = delegate (bool connected)
+                {
+                    if (connected && karooSystemService != null)
+                    {
+                        Console.WriteLine("Connected to Karoo Ext !");
+
+                        var style = IO.Hammerhead.Karooext.Models.SystemNotification.Style.Event;
+                        var actionIntent = new Intent(context, typeof(KTrackReceiverService));
+                        actionIntent.SetAction(KTrackReceiverService.KTrackServiceAction.Start.ToString());
+                        var intent = actionIntent.Action;
+                        var notif = new SystemNotification("ktpe", "KTrackPlus Service Running", null, "KTrackPlus", style, null, null);
+                        karooSystemService.Dispatch(notif);
+
+                        var rBleId = UUID.RandomUUID().ToString();
+                        var bleResult = karooSystemService.Dispatch(new RequestBluetooth(rBleId));
+                        Console.WriteLine("Karoo ble request : " + bleResult);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Karoo ext error !");
+                    }
+                };
+                if (karooSystemService == null)
+                    karooSystemService = new KarooSystemService(this);
+                karooSystemService.Connect(act);
+            }
 
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
@@ -220,6 +263,11 @@ namespace KTrackPlus
         {
             if (context != null)
                 ActicityMonitor.Stop(context);
+
+            if (karooSystemService != null && karooSystemService.Connected)
+            {
+                karooSystemService.Disconnect();
+            }
             
             context = null;
             isRunning = false;

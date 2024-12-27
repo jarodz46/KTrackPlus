@@ -5,7 +5,7 @@ VisualStudioVersion = 17.8.34112.27
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "KTrackPlus", "KTrackPlus.csproj", "{EBA90D28-E25B-498C-AFC5-7E1B78FF2C23}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "karooextlink", "..\karooextlink\karooextlink.csproj", "{EA42654C-F888-400C-ADFA-39A84312B5AE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "karooext.dotnet", "..\karooextlink\karooext.dotnet.csproj", "{3742E913-9281-48A0-9F6E-24E0D6351EB3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,10 +19,10 @@ Global
 		{EBA90D28-E25B-498C-AFC5-7E1B78FF2C23}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EBA90D28-E25B-498C-AFC5-7E1B78FF2C23}.Release|Any CPU.Build.0 = Release|Any CPU
 		{EBA90D28-E25B-498C-AFC5-7E1B78FF2C23}.Release|Any CPU.Deploy.0 = Release|Any CPU
-		{EA42654C-F888-400C-ADFA-39A84312B5AE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EA42654C-F888-400C-ADFA-39A84312B5AE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EA42654C-F888-400C-ADFA-39A84312B5AE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EA42654C-F888-400C-ADFA-39A84312B5AE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3742E913-9281-48A0-9F6E-24E0D6351EB3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3742E913-9281-48A0-9F6E-24E0D6351EB3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3742E913-9281-48A0-9F6E-24E0D6351EB3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3742E913-9281-48A0-9F6E-24E0D6351EB3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

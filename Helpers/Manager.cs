@@ -1,6 +1,7 @@
 ﻿using Android.Content;
 using Android.Telephony;
 using Dynastream.Fit;
+using IO.Hammerhead.Karooext;
 using Java.Util;
 using MessagePack;
 using System;
@@ -29,6 +30,8 @@ namespace KTrackPlus.Helpers
 
         internal string UsedId { get; set; } = string.Empty;
 
+        public static IO.Hammerhead.Karooext.KarooSystemService? KarooSystemService { get; set; }
+
         protected abstract bool InternalStart();
         protected abstract void InternalStop();
         protected abstract void TimerTask();
@@ -53,7 +56,16 @@ namespace KTrackPlus.Helpers
         public bool Start()
         {
             try
-            {               
+            {
+                if (KTrackService.karooSystemService != null && KTrackService.karooSystemService.Connected)
+                {
+                    var ble = new IO.Hammerhead.Karooext.Models.RequestBluetooth("ktrackble");
+                    if (KTrackService.karooSystemService.Dispatch(ble))
+                        Console.WriteLine("Karoo ble access granted !");
+                    else
+                        Console.WriteLine("Fail to get ble access !");
+                }
+
                 var date = System.DateTime.Now;
                 Preferences.Set("lastStartDay", date.Day + "/" + date.Month);
                 UsedId = string.Empty;
@@ -115,6 +127,12 @@ namespace KTrackPlus.Helpers
         bool taskIsRunning = false;
         public void Stop()
         {
+            if (KTrackService.karooSystemService != null && KTrackService.karooSystemService.Connected)
+            {
+                var ble = new IO.Hammerhead.Karooext.Models.ReleaseBluetooth("ktrackble");
+                KTrackService.karooSystemService.Dispatch(ble);
+            }
+
             if (IsRunning)
             {
                 StopTimer();
