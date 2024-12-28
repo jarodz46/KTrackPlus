@@ -2,11 +2,13 @@
 using Android.Telephony;
 using Dynastream.Fit;
 using IO.Hammerhead.Karooext;
+using IO.Hammerhead.Karooext.Models;
 using Java.Util;
 using MessagePack;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http.Headers;
@@ -141,7 +143,7 @@ namespace KTrackPlus.Helpers
             }
         }
 
-       
+
         class Task : TimerTask
         {
             Manager manager;
@@ -292,7 +294,7 @@ namespace KTrackPlus.Helpers
             Stats.updated = true;
             return await sendToAPI("locations", new LocationsPack(locs));
         }
-                
+
 
         internal async Task<bool> SendMails()
         {
@@ -366,37 +368,63 @@ namespace KTrackPlus.Helpers
             return true;
         }
 
-        internal async Task<bool> sendToAPI(string getInfos, object? content = null, string? ofile = null)
+        internal const string ApiPushFile = "pushInfos2.php";
+
+        string getApiCallUrl(string getInfos, string? ofile = null)
+        {
+            var file = ApiPushFile;
+            if (ofile != null)
+                file = ofile;
+            var baseUrl = apiUrl + file + "?id=" + UsedId;
+            if (getInfos.Length > 0)
+                baseUrl += "&";
+            return baseUrl + getInfos;
+        }
+        async Task<bool> sendToAPI(string getInfos, object? content = null, string? ofile = null)
+        {
+            if (Common.CurrentAppMode == Common.AppMode.Standalone && Common.IsKarooDevice && Common.NewKarooCapabilities)
+            {
+                var result = await sendToAPIThroughKarooAPI(getInfos, content, ofile);
+                return result;
+            }
+            else
+            {
+                var result = await sendToAPIDirectly(getInfos, content, ofile);
+                return result;
+            }
+        }
+
+        MemoryStream getStreamContent(object content)
+        {
+            var mpLocsBytes = MessagePackSerializer.Serialize(content);
+            var memoryStream = new MemoryStream();
+            GZipStream zip = new GZipStream(memoryStream, CompressionLevel.SmallestSize, true);
+            zip.Write(mpLocsBytes, 0, mpLocsBytes.Length);
+            zip.Close();
+            memoryStream.Position = 0;
+            return memoryStream;
+        }
+
+        internal async Task<bool> sendToAPIDirectly(string getInfos, object? content = null, string? ofile = null)
         {
             try
             {
-                
+
                 HttpClient client = new HttpClient();
-                var file = "pushInfos2.php";
-                if (ofile != null)
-                    file = ofile;
-                var baseUrl = apiUrl + file + "?id=" + UsedId;
-                if (getInfos.Length > 0)
-                    baseUrl += "&";
+                var callUrl = getApiCallUrl(getInfos, ofile);
                 HttpResponseMessage response;
                 if (content != null)
                 {
-                    var mpLocsBytes = MessagePack.MessagePackSerializer.Serialize(content);
-                    var memoryStream = new MemoryStream();
-                    GZipStream zip = new GZipStream(memoryStream, CompressionLevel.SmallestSize, true);
-                    zip.Write(mpLocsBytes, 0, mpLocsBytes.Length);
-                    zip.Close();
-                    memoryStream.Position = 0;
+                    var memoryStream = getStreamContent(content);
                     var scontent = new StreamContent(memoryStream);
                     scontent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
                     scontent.Headers.ContentEncoding.Add("gzip");
-
-                    response = await client.PostAsync(baseUrl + getInfos, scontent);
+                    response = await client.PostAsync(callUrl, scontent);
                     memoryStream.Close();
                 }
                 else
                 {
-                    response = await client.GetAsync(baseUrl + getInfos);
+                    response = await client.GetAsync(callUrl);
                 }
                 if (response.IsSuccessStatusCode)
                 {
@@ -412,45 +440,80 @@ namespace KTrackPlus.Helpers
                 return false;
             }
         }
-
-        // old json
-        internal async Task<bool> sendToAPI2(string getInfos, object? content = null, string? ofile = null)
+        
+        internal async Task<bool> sendToAPIThroughKarooAPI(string getInfos, object? content = null, string? ofile = null)
         {
-            HttpClient client = new HttpClient();
-            var file = "pushInfos.php";
-            if (ofile != null)
-                file = ofile;
-            var baseUrl = apiUrl + file + "?id=" + UsedId;
-            if (getInfos.Length > 0)
-                baseUrl += "&";
-            HttpResponseMessage response;
-            if (content != null)
+            try
             {
-                string jsonLocs = JsonSerializer.Serialize(content);
-                var jsonLocsBytes = Encoding.UTF8.GetBytes(jsonLocs);
-                var memoryStream = new MemoryStream();
-                GZipStream zip = new GZipStream(memoryStream, CompressionLevel.SmallestSize, true);
-                zip.Write(jsonLocsBytes, 0, jsonLocsBytes.Length);
-                zip.Close();
-                memoryStream.Position = 0;
-                var scontent = new StreamContent(memoryStream);
-                scontent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                scontent.Headers.ContentEncoding.Add("gzip");
-
-                response = await client.PostAsync(baseUrl + getInfos, scontent);
-                memoryStream.Close();
+                var kss = KTrackService.karooSystemService;
+                if (kss != null && kss.Connected)
+                {
+                    var callUrl = getApiCallUrl(getInfos, ofile);
+                    OnHttpResponse.MakeHttpRequest request;
+                    var headers = new Dictionary<string, string>();
+                    if (content != null)
+                    {
+                        var memoryStream = getStreamContent(content);
+                        headers.Add("Content-Type", "application/octet-stream");
+                        headers.Add("Content-Encoding", "gzip");
+                        request = new OnHttpResponse.MakeHttpRequest("POST", callUrl, headers, memoryStream.ToArray(), false);
+                        memoryStream.Close();
+                    }
+                    else
+                    {
+                        request = new OnHttpResponse.MakeHttpRequest("GET", callUrl, headers, null, false);
+                    }
+                    var tcs = new TaskCompletionSource<bool>();
+                    string consumerId = "";
+                    var resp = (OnHttpResponse r) =>
+                    {
+                        if (r.State is HttpResponseState.Complete)
+                        {                           
+                            var complete = r.State as HttpResponseState.Complete;
+                            if (complete != null)
+                            {
+                                if (complete.StatusCode == 200)
+                                {
+                                    if (ofile == null)
+                                    {
+                                        var bodyArray = complete.GetBody();
+                                        if (bodyArray != null)
+                                        {
+                                            var body = Encoding.Default.GetString(bodyArray);
+                                            tcs.TrySetResult(body == "OK");
+                                            return;
+                                        }
+                                    }
+                                    tcs.TrySetResult(true);
+                                    return;
+                                }
+                            }
+                        }
+                        if (r.State is HttpResponseState.Queued ||
+                            r.State is HttpResponseState.InProgress)
+                            return;
+                        tcs.TrySetResult(false);
+                    };
+                    consumerId = kss.AddConsumer(resp, request);
+                    var timeoutTask = System.Threading.Tasks.Task.Delay(6000);
+                    var completedTask = await System.Threading.Tasks.Task.WhenAny(tcs.Task, timeoutTask);
+                    //In case of timeout
+                    if (completedTask == timeoutTask)
+                    {
+                        kss.RemoveConsumer(consumerId);
+                        tcs.TrySetResult(false);
+                    }
+                    return await tcs.Task;
+                }
+                return false;
             }
-            else
+            catch
             {
-                response = await client.GetAsync(baseUrl + getInfos);
+                //Console.WriteLine("Exception on api call");
+                return false;
             }
-            if (response.IsSuccessStatusCode)
-            {
-                if (ofile != null)
-                    return true;
-                return await response.Content.ReadAsStringAsync() == "OK";
-            }
-            return false;
         }
+
+       
     }
 }

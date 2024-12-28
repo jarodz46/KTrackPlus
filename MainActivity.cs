@@ -252,47 +252,58 @@ namespace KTrackPlus
                 }
                 else
                 {
-                    if (Common.IsKarooDevice && sdk >= 31 && !Android.OS.Environment.IsExternalStorageManager)
+                    if (Common.IsKarooDevice)
                     {
-                        var line2 = "";
-                        string message = "You need to enable access to device files, it's required to app to be able to read the current activity" +
-                                System.Environment.NewLine + line2;
-
-                        ShowAlert(message,
-                            () =>
+                        if (sdk >= 31)
+                        {
+                            if (!Android.OS.Environment.IsExternalStorageManager)
                             {
-                                //Toast.MakeText(this, line2, ToastLength.Long)?.Show();
-                                var intent = new Android.Content.Intent(Android.Provider.Settings.ActionManageAppAllFilesAccessPermission);
-                                intent.SetData(Android.Net.Uri.FromParts("package", PackageName, null));
-                                StartActivity(intent);
-                            });
-                        return false;
-                    }
-                    if (CheckSelfPermission(Android.Manifest.Permission.AccessCoarseLocation) != Android.Content.PM.Permission.Granted)
-                    {
-                        permissions.Add(Android.Manifest.Permission.AccessCoarseLocation);
-                    }
-                    if (CheckSelfPermission(Android.Manifest.Permission.AccessFineLocation) != Android.Content.PM.Permission.Granted)
-                    {
-                        permissions.Add(Android.Manifest.Permission.AccessFineLocation);
-                    }
-                    if (CheckSelfPermission(Android.Manifest.Permission.BluetoothConnect) != Android.Content.PM.Permission.Granted)
-                    {
-                        permissions.Add(Android.Manifest.Permission.BluetoothConnect);
-                    }
-                    if (CheckSelfPermission(Android.Manifest.Permission.BluetoothScan) != Android.Content.PM.Permission.Granted)
-                    {
-                        permissions.Add(Android.Manifest.Permission.BluetoothScan);
-                    }
-                    //if (CheckSelfPermission(Android.Manifest.Permission.ReadExternalStorage) != Android.Content.PM.Permission.Granted)
-                    //{
-                    //    permissions.Add(Android.Manifest.Permission.ReadExternalStorage);
-                    //}
-                    //if (CheckSelfPermission(Android.Manifest.Permission.WriteExternalStorage) != Android.Content.PM.Permission.Granted)
-                    //{
-                    //    permissions.Add(Android.Manifest.Permission.WriteExternalStorage);
-                    //}
+                                var line2 = "";
+                                string message = "You need to enable access to device files, it's required to app to be able to read the current activity" +
+                                        System.Environment.NewLine + line2;
 
+                                ShowAlert(message,
+                                    () =>
+                                    {
+                                        //Toast.MakeText(this, line2, ToastLength.Long)?.Show();
+                                        var intent = new Android.Content.Intent(Android.Provider.Settings.ActionManageAppAllFilesAccessPermission);
+                                        intent.SetData(Android.Net.Uri.FromParts("package", PackageName, null));
+                                        StartActivity(intent);
+                                    });
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            if (CheckSelfPermission(Android.Manifest.Permission.ReadExternalStorage) != Android.Content.PM.Permission.Granted)
+                            {
+                                permissions.Add(Android.Manifest.Permission.ReadExternalStorage);
+                            }
+                            if (CheckSelfPermission(Android.Manifest.Permission.WriteExternalStorage) != Android.Content.PM.Permission.Granted)
+                            {
+                                permissions.Add(Android.Manifest.Permission.WriteExternalStorage);
+                            }
+                        }
+                    }
+                    if (Common.CurrentAppMode != Common.AppMode.Standalone)
+                    {
+                        if (CheckSelfPermission(Android.Manifest.Permission.AccessCoarseLocation) != Android.Content.PM.Permission.Granted)
+                        {
+                            permissions.Add(Android.Manifest.Permission.AccessCoarseLocation);
+                        }
+                        if (CheckSelfPermission(Android.Manifest.Permission.AccessFineLocation) != Android.Content.PM.Permission.Granted)
+                        {
+                            permissions.Add(Android.Manifest.Permission.AccessFineLocation);
+                        }
+                        if (CheckSelfPermission(Android.Manifest.Permission.BluetoothConnect) != Android.Content.PM.Permission.Granted)
+                        {
+                            permissions.Add(Android.Manifest.Permission.BluetoothConnect);
+                        }
+                        if (CheckSelfPermission(Android.Manifest.Permission.BluetoothScan) != Android.Content.PM.Permission.Granted)
+                        {
+                            permissions.Add(Android.Manifest.Permission.BluetoothScan);
+                        }
+                    }
                     
                 }
             }

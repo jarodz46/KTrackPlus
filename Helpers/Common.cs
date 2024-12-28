@@ -51,7 +51,6 @@ namespace KTrackPlus.Helpers
             {
                 if (IsKarooDevice)
                 {
-
                     CurrentAppMode = AppMode.Client;
                 }
                 else
@@ -94,6 +93,15 @@ namespace KTrackPlus.Helpers
                 if (mIsKarooDevice == null)
                     mIsKarooDevice = DeviceInfo.Manufacturer == Hammerhead;
                 return (bool)mIsKarooDevice;
+            }
+        }
+
+        internal static bool NewKarooCapabilities
+        {
+            get
+            {
+                string[] list = { "k24" }; //k24 : new karoo aka karoo 3
+                return list.Contains(DeviceInfo.Name);
             }
         }
 
