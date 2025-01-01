@@ -19,10 +19,12 @@ using Console = System.Console;
 using Android.Net;
 using Android.Telephony;
 using Java.Interop;
+using IO.Hammerhead.Karooext.Extension;
 
 namespace KTrackPlus
 {
-    [Activity(Label = "@string/app_name", MainLauncher = false, Theme = "@style/Theme.AppCompat", Exported = false)]
+
+    [Activity(Label = "@string/app_name", MainLauncher = false, Theme = "@style/Theme.AppCompat", Exported = true)]
     [IntentFilter([Android.Content.Intent.ActionSend], Categories = [Android.Content.Intent.CategoryDefault], DataMimeType = "image/*")]
     [IntentFilter([Android.Content.Intent.ActionSendMultiple], Categories = [Android.Content.Intent.CategoryDefault], DataMimeType = "image/*")]
     public class MainActivity : AppCompatActivity
@@ -85,14 +87,15 @@ namespace KTrackPlus
             switch (item.ItemId)
             {
                 case Resource.Id.opensettings:
-                    if (KTrackService.isRunning)
+                    if (KTrackService.UsedManager != null && KTrackService.UsedManager.IsRunning)
                     {
-                        ShowAlert("Stop service before");
+                        ShowAlert("Stop app before");
                         return false;
                     }
                     nDialog = new ProgressDialog(this);
                     nDialog.SetMessage("Loading...");
                     nDialog.SetCancelable(false);
+                    nDialog.Window?.SetGravity(GravityFlags.Center);
                     nDialog.Show();
                     StartActivity(new Android.Content.Intent(this, typeof(Helpers.Client.SettingsActivity)));
                     //nDialog.Dismiss();
@@ -201,132 +204,53 @@ namespace KTrackPlus
             return true;
         }
 
-        bool CheckPermissionsAndStart()
+        
+        internal bool AskPermissions()
         {
-            var sdk = (int)Build.VERSION.SdkInt;
-
-
-            var locProvider = Preferences.Get("locationsProvider", Common.IsKarooDevice ? "current" : "gps");
-            if (locProvider != "gps" && !Common.IsKarooDevice)
-            {
-                Console.WriteLine("It's not a Karoo device, switch to gps loc provider");
-                Preferences.Set("locationsProvider", "gps");
-                locProvider = "gps";
-            }
 
             var permissions = new List<string>();
 
-            if (CheckSelfPermission(Android.Manifest.Permission.ReadPhoneState) != Android.Content.PM.Permission.Granted)
+            if (!Common.CheckPermissions(this, ref permissions))
             {
-                permissions.Add(Android.Manifest.Permission.ReadPhoneState);
-            }
 
-            if (Common.CurrentAppMode == Common.AppMode.Server)
-            {
-               
-                if (sdk >= 31 && CheckSelfPermission(Android.Manifest.Permission.BluetoothConnect) != Android.Content.PM.Permission.Granted)
+                if (Common.IsKarooDevice && !Android.OS.Environment.IsExternalStorageManager)
                 {
-                    permissions.Add(Android.Manifest.Permission.BluetoothConnect);
-                }
-                if (sdk >= 31 && CheckSelfPermission(Android.Manifest.Permission.BluetoothAdvertise) != Android.Content.PM.Permission.Granted)
-                {
-                    permissions.Add(Android.Manifest.Permission.BluetoothAdvertise);
-                }
-            }
-            else
-            {                
-                if (locProvider == "gps")
-                {
-                    if (CheckSelfPermission(Android.Manifest.Permission.AccessCoarseLocation) != Android.Content.PM.Permission.Granted)
-                    {
-                        permissions.Add(Android.Manifest.Permission.AccessCoarseLocation);
-                    }
-                    if (CheckSelfPermission(Android.Manifest.Permission.AccessFineLocation) != Android.Content.PM.Permission.Granted)
-                    {
-                        permissions.Add(Android.Manifest.Permission.AccessFineLocation);
-                    }
-                    if (sdk >= 29 && CheckSelfPermission(Android.Manifest.Permission.AccessBackgroundLocation) != Android.Content.PM.Permission.Granted)
-                    {
-                        permissions.Add(Android.Manifest.Permission.AccessBackgroundLocation);
-                    }
-                }
-                else
-                {
-                    if (Common.IsKarooDevice)
-                    {
-                        if (sdk >= 31)
-                        {
-                            if (!Android.OS.Environment.IsExternalStorageManager)
-                            {
-                                var line2 = "";
-                                string message = "You need to enable access to device files, it's required to app to be able to read the current activity" +
-                                        System.Environment.NewLine + line2;
+                    var line2 = "";
+                    string message = "You need to enable access to device files, it's required to app to be able to read the current activity" +
+                            System.Environment.NewLine + line2;
 
-                                ShowAlert(message,
-                                    () =>
-                                    {
-                                        //Toast.MakeText(this, line2, ToastLength.Long)?.Show();
-                                        var intent = new Android.Content.Intent(Android.Provider.Settings.ActionManageAppAllFilesAccessPermission);
-                                        intent.SetData(Android.Net.Uri.FromParts("package", PackageName, null));
-                                        StartActivity(intent);
-                                    });
-                                return false;
-                            }
-                        }
-                        else
+                    ShowAlert(message,
+                        () =>
                         {
-                            if (CheckSelfPermission(Android.Manifest.Permission.ReadExternalStorage) != Android.Content.PM.Permission.Granted)
-                            {
-                                permissions.Add(Android.Manifest.Permission.ReadExternalStorage);
-                            }
-                            if (CheckSelfPermission(Android.Manifest.Permission.WriteExternalStorage) != Android.Content.PM.Permission.Granted)
-                            {
-                                permissions.Add(Android.Manifest.Permission.WriteExternalStorage);
-                            }
-                        }
-                    }
-                    if (Common.CurrentAppMode != Common.AppMode.Standalone)
-                    {
-                        if (CheckSelfPermission(Android.Manifest.Permission.AccessCoarseLocation) != Android.Content.PM.Permission.Granted)
-                        {
-                            permissions.Add(Android.Manifest.Permission.AccessCoarseLocation);
-                        }
-                        if (CheckSelfPermission(Android.Manifest.Permission.AccessFineLocation) != Android.Content.PM.Permission.Granted)
-                        {
-                            permissions.Add(Android.Manifest.Permission.AccessFineLocation);
-                        }
-                        if (CheckSelfPermission(Android.Manifest.Permission.BluetoothConnect) != Android.Content.PM.Permission.Granted)
-                        {
-                            permissions.Add(Android.Manifest.Permission.BluetoothConnect);
-                        }
-                        if (CheckSelfPermission(Android.Manifest.Permission.BluetoothScan) != Android.Content.PM.Permission.Granted)
-                        {
-                            permissions.Add(Android.Manifest.Permission.BluetoothScan);
-                        }
-                    }
-                    
+                            //Toast.MakeText(this, line2, ToastLength.Long)?.Show();
+                            var intent = new Android.Content.Intent(Android.Provider.Settings.ActionManageAppAllFilesAccessPermission);
+                            intent.SetData(Android.Net.Uri.FromParts("package", PackageName, null));
+                            StartActivity(intent);
+                        });
+                    return false;
+                }
+
+
+                if (permissions.Count > 0)
+                {
+                    RequestPermissions(permissions.ToArray(), 1337);
+                    return false;
                 }
             }
-            if (permissions.Count > 0)
+            return true;
+        }
+
+        void StartService()
+        {
+            var intent = new Android.Content.Intent(this, typeof(KTrackService));
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
             {
-                // Missing persmission(s) try to start after request
-                RequestPermissions(permissions.ToArray(), 1337);
+                StartForegroundService(intent);
             }
             else
             {
-                // All permissions ok start direclty
-                var intent = new Android.Content.Intent(this, typeof(KTrackService));
-                if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
-                {
-                    StartForegroundService(intent);
-                }
-                else
-                {
-                    StartService(intent);
-                }
-                return true;
+                StartService(intent);
             }
-            return false;
         }
 
         void HandleIntent()
@@ -403,7 +327,7 @@ namespace KTrackPlus
                 SupportFragmentManager.BeginTransaction().Remove(mainFragment).Commit();
                 mainFragment = null;
             }
-            if (mainFragment == null && Common.CurrentAppMode != Common.AppMode.Server)
+            if (mainFragment == null)
             {
                 mainFragment = new MainFragment();
                 SupportFragmentManager.BeginTransaction().Add(Resource.Id.fragment_placeholder, mainFragment).Commit();
@@ -418,19 +342,15 @@ namespace KTrackPlus
             if (state)
             {
                 Console.WriteLine("Try to start service");
-                if (CheckPermissionsAndStart())
+                StartService();
+                while (!KTrackService.isRunning)
                 {
-                    while (!KTrackService.isRunning)
-                    {
-                        if (System.Environment.TickCount - tc > 5000)
-                            return false;
-                        Thread.Sleep(1);
-                    }
-                    RunOnUiThread(refreshUiAndFragment);
-                    return true;
-                }                
-                return false;
-                
+                    if (System.Environment.TickCount - tc > 5000)
+                        return false;
+                    Thread.Sleep(1);
+                }
+                RunOnUiThread(refreshUiAndFragment);
+                return true;                
             }
             else
             {
@@ -467,9 +387,8 @@ namespace KTrackPlus
                 HandleIntent();
 
                 SetContentView(Resource.Layout.main_layout);
+                KTrackService.InitKarooSystem(this);
                 Common.CheckAppMode();
-
-                
 
                 //if (savedInstanceState == null && Common.CurrentAppMode != Common.AppMode.Server)
                 refreshUiAndFragment(true);
@@ -492,7 +411,7 @@ namespace KTrackPlus
                 var serviceToggle = FindViewById<Switch>(Resource.Id.serviceSwitch);
                 if (serviceToggle != null)
                 {
-                    serviceToggle.Checked = KTrackService.isRunning;
+                    //serviceToggle.Checked = KTrackService.isRunning;
                     serviceToggle.CheckedChange += delegate (object? sender, CompoundButton.CheckedChangeEventArgs e)
                     {
                         serviceToggle.Enabled = false;
@@ -516,6 +435,7 @@ namespace KTrackPlus
                             }
                         }).Start();
                     };
+                    serviceToggle.Checked = true;
                 }
 
                 try

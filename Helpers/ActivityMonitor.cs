@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace KTrackPlus.Helpers
 {
-    internal static class ActicityMonitor
+    internal static class ActivityMonitor
     {
 
         static System.Timers.Timer? checkActivityTimer;
@@ -55,12 +55,15 @@ namespace KTrackPlus.Helpers
                             checkActivityTimer.Stop();
                         if (KTrackService.UsedManager.IsRunning)
                             return;
+                        if (!Common.CheckPermissions(context, true))
+                            return;
+
                         try
                         {
                                 
                             var newFiles = Directory.GetFiles(Common.KarooTempFitDir);
                             if (thereIsNewFile(newFiles))
-                            {
+                            {                                
 
                                 new Handler(Looper.MainLooper).Post(() =>
                                 {

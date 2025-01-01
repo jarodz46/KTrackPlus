@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ExtensionInfo
+    id="ktrackplus"
+    displayName="@string/extension_name"
+    icon="@mipmap/appicon"
+    scansDevices="false">
+  <DataType
+        description="Show time span since last location update"
+        displayName="ktrackp"
+        graphical="true"
+        icon="@drawable/led"
+        typeId="ktrackStatus" />
+</ExtensionInfo>

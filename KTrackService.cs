@@ -6,7 +6,6 @@ using Android.Views;
 using AndroidX.Core.App;
 using AndroidX.VersionedParcelable;
 using IO.Hammerhead.Karooext;
-using IO.Hammerhead.Karooext.Aidl;
 using IO.Hammerhead.Karooext.Internal;
 using IO.Hammerhead.Karooext.Models;
 using Java.Util;
@@ -19,14 +18,43 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using IO.Hammerhead.Karooext.Extension;
+using Java.Interop;
+using karooext.dotnet.Classes;
+using TimberLog;
+using Android.Graphics;
 
 namespace KTrackPlus
 {
-    [Service(Label = "KTrackService", ForegroundServiceType = Android.Content.PM.ForegroundService.TypeLocation)]
-    internal class KTrackService : Service
+
+    [Service(Exported = true, ForegroundServiceType = Android.Content.PM.ForegroundService.TypeSpecialUse)]
+    [IntentFilter(["io.hammerhead.karooext.KAROO_EXTENSION"])]
+    [MetaData("io.hammerhead.karooext.EXTENSION_INFO", Resource = "@xml/extension_info")]
+    public class KTrackService : KarooExtension
     {
 
-        
+        [Export(SuperArgumentsString = "\"ktrackplus\",\"2.0\"")]
+        public KTrackService() : base("ktrackplus", "2.0")
+        {
+        }
+
+        public override IList<DataTypeImpl> Types
+        {
+            get
+            {
+                var list = new List<DataTypeImpl>
+                {
+                    new KTrackStatusData()
+                };
+                return list;
+            }
+        }
+
+        public override void OnCreate()
+        {
+            System.Console.SetOut(MainActivity.writer);
+            base.OnCreate();
+        }
 
         public static bool isRunning { get; set; } = false;
 
@@ -36,10 +64,10 @@ namespace KTrackPlus
 
         internal static void ChangeNotifIcon(int iconId)
         {
-            if (context != null)
+            if (Context != null)
             {
                 notificationBuilder.SetSmallIcon(iconId);
-                var notificationManagerCompat = NotificationManagerCompat.From(context);
+                var notificationManagerCompat = NotificationManagerCompat.From(Context);
                 notificationManagerCompat.Notify(NotificationId, notificationBuilder.Build());
                 //Console.WriteLine("Try change icon");
             }
@@ -48,16 +76,16 @@ namespace KTrackPlus
 
         static PendingIntent GetPendingIntentFromAction(KTrackReceiverService.KTrackServiceAction action)
         {
-            var actionIntent = new Intent(context, typeof(KTrackReceiverService));
+            var actionIntent = new Intent(Context, typeof(KTrackReceiverService));
             actionIntent.SetAction(action.ToString());
             //actionIntent.PutExtra("action", (sbyte)action);
             actionIntent.SetFlags(ActivityFlags.SingleTop);
-            return PendingIntent.GetBroadcast(context, 0, actionIntent, PendingIntentFlags.Immutable);
+            return PendingIntent.GetBroadcast(Context, 0, actionIntent, PendingIntentFlags.Immutable);
         }
 
         static void SetNotificationBuild(KTrackReceiverService.KTrackServiceAction action)
         {
-            if (context != null)
+            if (Context != null)
             {                
                 notificationBuilder.ClearActions();
                 switch (action)
@@ -77,10 +105,10 @@ namespace KTrackPlus
 
         internal static void RefreshNotifAction(KTrackReceiverService.KTrackServiceAction action)
         {
-            if (context != null)
+            if (Context != null)
             {
                 SetNotificationBuild(action);
-                var notificationManagerCompat = NotificationManagerCompat.From(context);
+                var notificationManagerCompat = NotificationManagerCompat.From(Context);
                 notificationManagerCompat.Notify(NotificationId, notificationBuilder.Build());
                 var activity = MainActivity.Get;
                 if (activity != null)
@@ -95,12 +123,51 @@ namespace KTrackPlus
         }
 
 
-        static Context? context;
+        internal static Context? Context { get; private set; } = null;
 
         internal static long StartTime { get; set; } = 0;
 
-        
 
+        internal static void InitKarooSystem(Context? context = null)
+        {
+            if (context == null)
+            {
+                if (Context == null)
+                    return;
+                else
+                    context = Context;
+            }
+            if (Common.IsKarooDevice)
+            {
+                if (karooSystemService == null)
+                {                    
+                    karooSystemService = new KarooSystemService(context);                    
+                }
+                if (!karooSystemService.Connected)
+                {
+                    Action<bool> act = delegate (bool connected)
+                    {
+                        if (connected && karooSystemService != null)
+                        {
+
+                            Console.WriteLine("Connected to Karoo Ext !");
+
+                            var style = SystemNotification.Style.Event;
+                            var actionIntent = new Intent(context, typeof(KTrackReceiverService));
+                            actionIntent.SetAction(KTrackReceiverService.KTrackServiceAction.Start.ToString());
+                            var intent = actionIntent.Action;
+                            var notif = new SystemNotification("ktpe", "KTrackPlus Connected", null, "KTrackPlus", style, null, null);
+                            karooSystemService.Dispatch(notif);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Karoo ext error !");
+                        }
+                    };
+                    karooSystemService.Connect(act);
+                }
+            }
+        }
         
 
 
@@ -109,40 +176,10 @@ namespace KTrackPlus
         [return: GeneratedEnum]
         public override StartCommandResult OnStartCommand(Intent? intent, [GeneratedEnum] StartCommandFlags flags, int startId)
         {
-            context = this;
-
+            Context = this;            
             isRunning = false;
-            Common.CheckAppMode();
 
-            if (Common.IsKarooDevice)
-            {
-                
-                Action<bool> act = delegate (bool connected)
-                {
-                    if (connected && karooSystemService != null)
-                    {
-                        Console.WriteLine("Connected to Karoo Ext !");
-
-                        var style = IO.Hammerhead.Karooext.Models.SystemNotification.Style.Event;
-                        var actionIntent = new Intent(context, typeof(KTrackReceiverService));
-                        actionIntent.SetAction(KTrackReceiverService.KTrackServiceAction.Start.ToString());
-                        var intent = actionIntent.Action;
-                        var notif = new SystemNotification("ktpe", "KTrackPlus Service Running", null, "KTrackPlus", style, null, null);
-                        karooSystemService.Dispatch(notif);
-
-                        var rBleId = UUID.RandomUUID().ToString();
-                        var bleResult = karooSystemService.Dispatch(new RequestBluetooth(rBleId));
-                        Console.WriteLine("Karoo ble request : " + bleResult);
-                    }
-                    else
-                    {
-                        Console.WriteLine("Karoo ext error !");
-                    }
-                };
-                if (karooSystemService == null)
-                    karooSystemService = new KarooSystemService(this);
-                karooSystemService.Connect(act);
-            }
+            InitKarooSystem(this);
 
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
@@ -157,7 +194,7 @@ namespace KTrackPlus
             PendingIntent? pendingIntent = PendingIntent.GetActivity(this, 0, new Intent(this, typeof(MainActivity)), PendingIntentFlags.Immutable);
             if (pendingIntent == null)
             {
-                Console.WriteLine("Fail to get main acticity intent");
+                Console.WriteLine("Fail to get main activity intent");
                 goto end;
             }
             //var startIntent = new Intent(this, typeof(KTrackReceiverService));
@@ -174,55 +211,25 @@ namespace KTrackPlus
             }
             var notification = notificationBuilder.Build();
 
-            
-
             //Console.WriteLine("Start foreground notification...");
             StartForeground(NotificationId, notification);
-
+                        
             
-            isRunning = true;
 
-            ActicityMonitor.Start(this);
+            ActivityMonitor.Start(this);
 
             //Common.UsedId = string.Empty;
-            if (Common.CurrentAppMode == Common.AppMode.Server)
-            {
-                UsedManager = ServerManager.Init(this);
-                if (!UsedManager.Start())
-                {
-                    Console.WriteLine("Fail to start service");
-                    isRunning = false;
-                    new Thread(t =>
-                    {
-                        Thread.Sleep(1000);
-                        StopSelf();                        
-                    }).Start();
+            Common.CheckAppMode();
 
-                }
-            }
-            else
-            {
-                UsedManager = ClientManager.Init(this);                
-            }
-
-            if (Common.CurrentAppMode != Common.AppMode.Server && Xamarin.Essentials.Preferences.Get("autoReset", false))
-            {
-                var date = DateTime.Now;
-                var lastDay = Xamarin.Essentials.Preferences.Get("lastStartDay", "");
-                if (lastDay != date.Day + "/" + date.Month)
-                {
-                    Console.WriteLine("Day changed : auto reset");
-                    UsedManager.AskForReset = true;
-                }
-            }
-
+            isRunning = true;
             Toast.MakeText(this, "KTrackPlus service Started", ToastLength.Long).Show();
-            Xamarin.Essentials.Preferences.Set("alreadyRunned", true);
             StartTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         end:
             return base.OnStartCommand(intent, flags, startId);
         }
+
+        
 
         private void AndroidEnvironment_UnhandledExceptionRaiser(object? sender, RaiseThrowableEventArgs e)
         {
@@ -241,10 +248,6 @@ namespace KTrackPlus
 
         const string channel_id = "karoobletrack";
 
-        public KTrackService()
-        {
-        }
-
         bool createNotificationChannel()
         {
             //Console.WriteLine("Create notification channel");
@@ -261,15 +264,15 @@ namespace KTrackPlus
 
         void Stop()
         {
-            if (context != null)
-                ActicityMonitor.Stop(context);
+            if (Context != null)
+                ActivityMonitor.Stop(Context);
 
             if (karooSystemService != null && karooSystemService.Connected)
             {
                 karooSystemService.Disconnect();
             }
-            
-            context = null;
+
+            Context = null;
             isRunning = false;
             UsedManager?.Stop();            
         }
@@ -286,9 +289,5 @@ namespace KTrackPlus
             base.OnDestroy();
         }
 
-        public override IBinder? OnBind(Intent? intent)
-        {
-            return null;
-        }
     }
 }

@@ -27,9 +27,9 @@ namespace KTrackPlus.Helpers
 
 
         static ServerManager? instance = null;
-        static internal Manager Init(Context context)
+        static internal Manager Init()
         {
-            instance = new ServerManager(context);
+            instance = new ServerManager();
             return instance;
         }
         internal static ServerManager Get
@@ -44,7 +44,7 @@ namespace KTrackPlus.Helpers
             }
         }
 
-        public ServerManager(Context context) : base(context)
+        public ServerManager() : base()
         {
             bluetoothReceiver = new ServerBluetoothReceiver(this);
         }
@@ -200,7 +200,7 @@ namespace KTrackPlus.Helpers
         internal int updateInterval = 30;
         bool waitForId = false;
 
-        protected override void FastTimerTask()
+        protected async override Task FastTimerTask()
         {
             if (sendInternetStatus && ConnectedDevice != null && updateServerStatus())
             {
@@ -211,7 +211,7 @@ namespace KTrackPlus.Helpers
             }
         }
 
-        async protected override void TimerTask()
+        async protected override Task TimerTask()
         {
                        
 

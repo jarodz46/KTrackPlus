@@ -26,14 +26,18 @@ namespace KTrackPlus
                 var startMailBut = layout.FindViewById<Button>(Resource.Id.startMailBut);
                 var stopBut = layout.FindViewById<Button>(Resource.Id.stopBut);
                 var resetBut = layout.FindViewById<Button>(Resource.Id.ResetBut);
-
+                if (Common.CurrentAppMode == Common.AppMode.Server)
+                {
+                    startMailBut.Visibility = ViewStates.Invisible;
+                    resetBut.Visibility = ViewStates.Invisible;
+                }
 
 
                 if (startBut != null && startMailBut != null && stopBut != null && resetBut != null)
                 {
                     Action setVisibiliy = delegate
                     {
-                        if (KTrackService.isRunning && ClientManager.Get.IsRunning)
+                        if (KTrackService.isRunning && KTrackService.UsedManager.IsRunning)
                         {
                             startBut.Visibility = ViewStates.Gone;
                             stopBut.Visibility = ViewStates.Visible;
@@ -52,12 +56,17 @@ namespace KTrackPlus
                         startMailBut.Enabled = false;
                         new Thread(() =>
                         {
-                            if (maintActivity.SetService(true))
-                            {                                
-                                maintActivity.RunOnUiThread(() =>
+                            if (!KTrackService.isRunning)
+                            {
+                                if (!MainActivity.Get.SetService(true))
                                 {
-                                    ClientManager.Get.Start();                                    
-                                });
+                                    Console.WriteLine("Unable to start service !");
+                                    return;
+                                }
+                            }
+                            if (KTrackService.UsedManager.Start(true))
+                            {
+                                maintActivity.RunOnUiThread(setVisibiliy);
                             }
                             maintActivity.RunOnUiThread(() =>
                             {
@@ -97,10 +106,11 @@ namespace KTrackPlus
 
                     stopBut.Click += delegate
                     {
-                        maintActivity.delayView(stopBut);                      
+                        maintActivity.delayView(stopBut);
+                        KTrackService.UsedManager.Stop();
                         maintActivity.RunOnUiThread(() =>
                         {
-                            ClientManager.Get.Stop();
+                            maintActivity.RunOnUiThread(setVisibiliy);
                         });
                     };
 

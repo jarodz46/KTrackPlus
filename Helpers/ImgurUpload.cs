@@ -50,11 +50,14 @@ namespace KTrackPlus.Helpers
             }
         }
 
+        static bool running = false;
         private static async void Timer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             if (KTrackService.isRunning && Connectivity.NetworkAccess == NetworkAccess.Internet)
             {
-
+                if (running)
+                    return;
+                running = true;
                 try
                 {
                     var sendCache = new List<ImageInfos>();
@@ -89,17 +92,17 @@ namespace KTrackPlus.Helpers
                         }
                         else
                         {
-                            
+
                             var imageUrl = result.Original;
                             var tt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                             var fileDateTime = GetImageDateTimeFromStream(infos.GetStream());
                             if (fileDateTime != null)
                             {
                                 tt = new DateTimeOffset((DateTime)fileDateTime).ToUnixTimeSeconds();
-                                
+
                             }
                             lock (ServerManager.Get.pictures)
-                            {         
+                            {
                                 ServerManager.Get.pictures.Add(result.ToSimpleClass(tt));
                             }
                         }
@@ -108,6 +111,10 @@ namespace KTrackPlus.Helpers
                 catch
                 {
                     System.Console.WriteLine("Fail to send picture, try again later...");
+                }
+                finally
+                {
+                    running = false;
                 }
             }
         }

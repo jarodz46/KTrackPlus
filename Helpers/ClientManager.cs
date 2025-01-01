@@ -27,9 +27,9 @@ namespace KTrackPlus.Helpers
 
         static ClientManager? instance = null;
 
-        internal static Manager Init(Context context)
+        internal static Manager Init()
         {
-            instance = new ClientManager(context);
+            instance = new ClientManager();
             return instance;
         }
        
@@ -45,7 +45,7 @@ namespace KTrackPlus.Helpers
             }
         }
 
-        public ClientManager(Context context) : base(context)
+        public ClientManager() : base()
         {
             bluetoothReceiver = new ClientBluetoothReceiver(this);
         }
@@ -402,8 +402,9 @@ namespace KTrackPlus.Helpers
             }
         }
 
-        protected override void FastTimerTask()
+        protected async override Task FastTimerTask()
         {
+            return;
         }
 
         public int ServerSignalStrength { get; set; } = 4;
@@ -411,7 +412,7 @@ namespace KTrackPlus.Helpers
         bool sendDirectlyShowed = false;
         bool unableResetShowed = false;
         bool waitForInternetShowed = false;
-        protected override async void TimerTask()
+        protected async override Task TimerTask()
         {
             try
             {
@@ -636,6 +637,7 @@ namespace KTrackPlus.Helpers
                             memoryStream.Close();
                             return;
                         }
+                        LastSendPosSuccess = System.DateTime.Now;
                         updateStatsRequierd = true;
                         memoryStream.Close();
 

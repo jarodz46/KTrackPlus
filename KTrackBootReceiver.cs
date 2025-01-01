@@ -16,14 +16,7 @@ namespace KTrackPlus
     {
         public override void OnReceive(Context? context, Intent? intent)
         {
-            System.Console.SetOut(MainActivity.writer);
-            var alreadyRunned = Xamarin.Essentials.Preferences.Get("alreadyRunned", false);
             var serviceOnBoot = Xamarin.Essentials.Preferences.Get("serviceOnBoot", true);
-            if (serviceOnBoot && !alreadyRunned)
-            {
-                System.Console.WriteLine("Can't start on boot : start service manually before");
-                return;
-            }
             if (serviceOnBoot)
             {                
                 System.Console.WriteLine("Start service on boot");

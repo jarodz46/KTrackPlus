@@ -3,6 +3,7 @@ using Android.Telephony;
 using Dynastream.Fit;
 using IO.Hammerhead.Karooext;
 using IO.Hammerhead.Karooext.Models;
+using Java.IO;
 using Java.Util;
 using MessagePack;
 using System;
@@ -36,56 +37,110 @@ namespace KTrackPlus.Helpers
 
         protected abstract bool InternalStart();
         protected abstract void InternalStop();
-        protected abstract void TimerTask();
+        protected abstract Task TimerTask();
         protected abstract void InternalReset();
-        protected abstract void FastTimerTask();
+        protected abstract Task FastTimerTask();
 
-        public Manager(Context context)
+        public Manager()
         {
-            mContext = context;
         }
 
         public bool crash { get; set; } = false;
 
         public bool IsRunning { get; private set; } = false;
 
-        public Context mContext { get; private set; }
-        public Java.Util.Timer? timer { get; set; } = null;
+        public Context mContext
+        {
+            get
+            {
+                return KTrackService.Context;
+            }
+        }
+        public System.Threading.Timer? timer { get; set; } = null;
 
         public Settings? Settings { get; protected set; }
 
+        public System.DateTime? LastSendPosSuccess { get; protected set; } = null;
+
         internal string LastError { get; set; } = string.Empty;
-        public bool Start()
+        public bool Start(bool allowAskPersmissions = false)
         {
             try
             {
-                if (KTrackService.karooSystemService != null && KTrackService.karooSystemService.Connected)
+                if (!Common.CheckPermissions(mContext))
                 {
-                    var ble = new IO.Hammerhead.Karooext.Models.RequestBluetooth("ktrackble");
-                    if (KTrackService.karooSystemService.Dispatch(ble))
-                        Console.WriteLine("Karoo ble access granted !");
+                    if (allowAskPersmissions && MainActivity.Get != null)
+                    {
+                        MainActivity.Get.AskPermissions();
+                    }
                     else
-                        Console.WriteLine("Fail to get ble access !");
+                    {
+                        System.Console.WriteLine("Permissions are required, please start livetrack from app!");                        
+                    }
+                    return false;
+                }
+
+                if (Common.IsKarooDevice)
+                {
+                    if (KTrackService.karooSystemService == null || !KTrackService.karooSystemService.Connected)
+                        KTrackService.InitKarooSystem();
+
+                    if (KTrackService.karooSystemService != null && KTrackService.karooSystemService.Connected)
+                    {
+                        var ble = new IO.Hammerhead.Karooext.Models.RequestBluetooth("ktrackble");
+                        if (KTrackService.karooSystemService.Dispatch(ble))
+                            System.Console.WriteLine("Karoo ble access granted !");
+                        else
+                            System.Console.WriteLine("Fail to get ble access !");
+                    }
                 }
 
                 var date = System.DateTime.Now;
                 Preferences.Set("lastStartDay", date.Day + "/" + date.Month);
                 UsedId = string.Empty;
                 var result = InternalStart();
+                
                 if (result && timer == null)
                 {
                     var strInterval = Preferences.Get("updateInterval", "30");
                     UpdateInterval = int.Parse(strInterval);
-                    timer = new Java.Util.Timer();
-                    timer.Schedule(new Task(this), 1000, 1000);
+                    timer = new System.Threading.Timer(Timer_Elapsed, null, 1000, 1000);
                 }
                 IsRunning = result;
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Unable to start service : " + Environment.NewLine + ex.Message);
+                System.Console.WriteLine("Unable to start : " + Environment.NewLine + ex.Message);
                 return false;
+            }
+        }
+
+        int lastTaskTT = 0;
+        private async void Timer_Elapsed(object? sender)
+        {
+            if (taskIsRunning)
+                return;
+            taskIsRunning = true;
+            AskStopTask = false;
+            try
+            {
+                await FastTimerTask();
+                var ttOffset = Environment.TickCount - lastTaskTT;
+                if (ttOffset >= UpdateInterval * 1000)
+                {
+                    await TimerTask();
+                    lastTaskTT = Environment.TickCount;
+                }
+            }
+            catch (Exception te)
+            {
+                System.Console.WriteLine("Task crash :" + Environment.NewLine + te);
+            }
+            finally
+            {
+                AskStopTask = false;
+                taskIsRunning = false;
             }
         }
 
@@ -113,7 +168,7 @@ namespace KTrackPlus.Helpers
         {
             if (timer != null)
             {
-                timer.Cancel();
+                timer.Dispose();
                 AskStopTask = true;
                 var tickCount = Environment.TickCount;
                 while (taskIsRunning)
@@ -142,42 +197,7 @@ namespace KTrackPlus.Helpers
                 InternalStop();
             }
         }
-
-
-        class Task : TimerTask
-        {
-            Manager manager;
-
-            public Task(Manager manager)
-            {
-                this.manager = manager;
-            }
-            int lastTaskTT = 0;
-            public override void Run()
-            {
-                manager.taskIsRunning = true;
-                manager.AskStopTask = false;
-                try
-                {
-                    manager.FastTimerTask();
-                    var ttOffset = Environment.TickCount - lastTaskTT;
-                    if (ttOffset >= manager.UpdateInterval * 1000)
-                    {
-                        manager.TimerTask();
-                        lastTaskTT = Environment.TickCount;
-                    }
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Trask crash :" + Environment.NewLine + e);
-                }
-                finally
-                {
-                    manager.AskStopTask = false;
-                    manager.taskIsRunning = false;
-                }
-            }
-        }
+               
 
         internal List<SimpleImgurInfo> pictures { get; private set; } = new();
         internal List<SimpleLocation> locations { get; private set; } = new();
@@ -192,6 +212,11 @@ namespace KTrackPlus.Helpers
 
         internal bool checkInternet()
         {
+            if (Common.CurrentAppMode == Common.AppMode.Standalone && Common.NewKarooCapabilities)
+            {
+                internetStatus = true;
+                return true;
+            }
             internetStatus = Connectivity.NetworkAccess == NetworkAccess.Internet;
             if (internetStatus != true)
                 return false;
@@ -242,7 +267,7 @@ namespace KTrackPlus.Helpers
             else
             {
                 LastError = "Fail to send reset request";
-                Console.WriteLine(LastError);
+                System.Console.WriteLine(LastError);
             }
             return false;
         }
@@ -275,7 +300,7 @@ namespace KTrackPlus.Helpers
                 else
                 {
                     LastError = "Fail to send picture infos";
-                    Console.WriteLine(LastError);
+                    System.Console.WriteLine(LastError);
                     return false;
                 }
             }
@@ -305,7 +330,7 @@ namespace KTrackPlus.Helpers
                 var splitedMail = mail.Split('@');
                 if (splitedMail.Length == 2 && splitedMail[0].Length > 0 && splitedMail[1].Length > 0 && splitedMail[1].Contains('.'))
                 {
-                    Console.WriteLine("Try send mail to " + mail);
+                    System.Console.WriteLine("Try send mail to " + mail);
                     if (!await sendToAPI("mail", new MailInfos(mail, Settings.Name, locale), "sendmail2.php"))
                     {
                         result = false;
@@ -314,7 +339,7 @@ namespace KTrackPlus.Helpers
                 }
                 else
                 {
-                    Console.WriteLine(mail + " mail seem invalid, ignore");
+                    System.Console.WriteLine(mail + " mail seem invalid, ignore");
                 }
                 Thread.Sleep(1000);
             }
@@ -326,14 +351,21 @@ namespace KTrackPlus.Helpers
             var locsCache = new List<SimpleLocation>();
             lock (locations)
             {
-                locsCache.AddRange(locations);
+                if (locations.Count >= 300 && Common.CurrentAppMode == Common.AppMode.Standalone && Common.IsKarooDevice)
+                    locsCache.AddRange(locations.GetRange(0, 300));
+                else
+                    locsCache.AddRange(locations);
             }
             while (locsCache.Count > 0)
             {
                 if (AskStopTask)
+                {
                     return false;
+                }
                 if (!KTrackService.isRunning)
+                {
                     return false;
+                }
                 List<SimpleLocation> locsToSend;
                 if (locsCache.Count >= 100)
                     locsToSend = locsCache.GetRange(0, 100);
@@ -342,7 +374,7 @@ namespace KTrackPlus.Helpers
                 var result = false;
                 try
                 {
-                    result = await sendLocationsPack(locsToSend);
+                    result = await sendLocationsPack(locsToSend);                        
                 }
                 catch (Exception e)
                 {
@@ -351,6 +383,7 @@ namespace KTrackPlus.Helpers
                 }
                 if (result)
                 {
+                    LastSendPosSuccess = System.DateTime.Now;
                     locsCache.RemoveAll(l => locsToSend.Contains(l));
                     lock (locations)
                     {
@@ -360,11 +393,12 @@ namespace KTrackPlus.Helpers
                 else
                 {
                     LastError = "Fail to send locations";
-                    Console.WriteLine(LastError);
+                    System.Console.WriteLine(LastError);
                     return false;
                 }
                 Thread.Sleep(1);
             }
+            
             return true;
         }
 
@@ -382,7 +416,8 @@ namespace KTrackPlus.Helpers
         }
         async Task<bool> sendToAPI(string getInfos, object? content = null, string? ofile = null)
         {
-            if (Common.CurrentAppMode == Common.AppMode.Standalone && Common.IsKarooDevice && Common.NewKarooCapabilities)
+            if (Common.CurrentAppMode == Common.AppMode.Standalone && 
+                Common.IsKarooDevice && KTrackService.karooSystemService != null && KTrackService.karooSystemService.Connected)
             {
                 var result = await sendToAPIThroughKarooAPI(getInfos, content, ofile);
                 return result;
@@ -495,10 +530,16 @@ namespace KTrackPlus.Helpers
                         tcs.TrySetResult(false);
                     };
                     consumerId = kss.AddConsumer(resp, request);
-                    var timeoutTask = System.Threading.Tasks.Task.Delay(6000);
-                    var completedTask = await System.Threading.Tasks.Task.WhenAny(tcs.Task, timeoutTask);
+                    var timeout2Task = new Task(() =>
+                    {
+                        var tc = Environment.TickCount;
+                        while (!AskStopTask && (Environment.TickCount - tc) < 20 * 1000)
+                            Task.Delay(100);
+                    });
+                    //var timeoutTask = Task.Delay(20000);
+                    var completedTask = await Task.WhenAny(tcs.Task, timeout2Task);
                     //In case of timeout
-                    if (completedTask == timeoutTask)
+                    if (completedTask == timeout2Task)
                     {
                         kss.RemoveConsumer(consumerId);
                         tcs.TrySetResult(false);

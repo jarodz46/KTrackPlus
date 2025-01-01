@@ -63,6 +63,7 @@ namespace KTrackPlus.Helpers
             var result = false;
             if (lastAppMode != CurrentAppMode)
             {
+                ApplyMode();
                 switch (CurrentAppMode)
                 {
                     case AppMode.Standalone:
@@ -80,7 +81,33 @@ namespace KTrackPlus.Helpers
             lastAppMode = CurrentAppMode;
             return result;
         }
-               
+
+        internal static void ApplyMode()
+        {
+            if (KTrackService.UsedManager != null && KTrackService.UsedManager.IsRunning)
+                KTrackService.UsedManager.Stop();
+            if (CurrentAppMode == Common.AppMode.Server)
+            {
+                KTrackService.UsedManager = ServerManager.Init();
+            }
+            else
+            {
+                KTrackService.UsedManager = ClientManager.Init();
+            }
+
+            if (CurrentAppMode != Common.AppMode.Server && Xamarin.Essentials.Preferences.Get("autoReset", false))
+            {
+                var date = DateTime.Now;
+                var lastDay = Xamarin.Essentials.Preferences.Get("lastStartDay", "");
+                if (lastDay != date.Day + "/" + date.Month)
+                {
+                    Console.WriteLine("Day changed : auto reset");
+                    KTrackService.UsedManager.AskForReset = true;
+                }
+            }
+
+        }
+
 
         public static AppMode CurrentAppMode { get; set; } = AppMode.Client;
 
@@ -196,5 +223,114 @@ namespace KTrackPlus.Helpers
             return currentAppUsage;
 
         }
+
+        internal static bool CheckPermissions(Context context, bool useCache = false)
+        {
+            var permissions = new List<string>();
+            return CheckPermissions(context, ref permissions, useCache);
+        }
+
+        static bool? havePerms = null;
+        internal static bool CheckPermissions(Context context, ref List<string> permissions, bool useCache = false)
+        {
+            if (useCache && havePerms != null)
+            {
+                return (bool)havePerms;
+            }
+            var locProvider = Preferences.Get("locationsProvider", IsKarooDevice ? "current" : "gps");
+            if (locProvider != "gps" && !IsKarooDevice)
+            {
+                Console.WriteLine("It's not a Karoo device, switch to gps loc provider");
+                Preferences.Set("locationsProvider", "gps");
+                locProvider = "gps";
+            }
+
+            var sdk = (int)Build.VERSION.SdkInt;
+
+            if (context.CheckSelfPermission(Android.Manifest.Permission.ReadPhoneState) != Permission.Granted)
+            {
+                permissions.Add(Android.Manifest.Permission.ReadPhoneState);
+            }
+
+            if (CurrentAppMode == AppMode.Server)
+            {
+
+                if (sdk >= 31 && context.CheckSelfPermission(Android.Manifest.Permission.BluetoothConnect) != Permission.Granted)
+                {
+                    permissions.Add(Android.Manifest.Permission.BluetoothConnect);
+                }
+                if (sdk >= 31 && context.CheckSelfPermission(Android.Manifest.Permission.BluetoothAdvertise) != Permission.Granted)
+                {
+                    permissions.Add(Android.Manifest.Permission.BluetoothAdvertise);
+                }
+            }
+            else
+            {
+                if (locProvider == "gps")
+                {
+                    if (context.CheckSelfPermission(Android.Manifest.Permission.AccessCoarseLocation) != Permission.Granted)
+                    {
+                        permissions.Add(Android.Manifest.Permission.AccessCoarseLocation);
+                    }
+                    if (context.CheckSelfPermission(Android.Manifest.Permission.AccessFineLocation) != Permission.Granted)
+                    {
+                        permissions.Add(Android.Manifest.Permission.AccessFineLocation);
+                    }
+                    if (sdk >= 29 && context.CheckSelfPermission(Android.Manifest.Permission.AccessBackgroundLocation) != Permission.Granted)
+                    {
+                        permissions.Add(Android.Manifest.Permission.AccessBackgroundLocation);
+                    }
+                }
+                else
+                {
+                    if (IsKarooDevice)
+                    {
+                        if (sdk >= 31)
+                        {
+                            if (!Android.OS.Environment.IsExternalStorageManager)
+                            {
+                                havePerms = false;
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            if (context.CheckSelfPermission(Android.Manifest.Permission.ReadExternalStorage) != Permission.Granted)
+                            {
+                                permissions.Add(Android.Manifest.Permission.ReadExternalStorage);
+                            }
+                            if (context.CheckSelfPermission(Android.Manifest.Permission.WriteExternalStorage) != Permission.Granted)
+                            {
+                                permissions.Add(Android.Manifest.Permission.WriteExternalStorage);
+                            }
+                        }
+                    }
+                    if (CurrentAppMode != AppMode.Standalone)
+                    {
+                        if (context.CheckSelfPermission(Android.Manifest.Permission.AccessCoarseLocation) != Permission.Granted)
+                        {
+                            permissions.Add(Android.Manifest.Permission.AccessCoarseLocation);
+                        }
+                        if (context.CheckSelfPermission(Android.Manifest.Permission.AccessFineLocation) != Permission.Granted)
+                        {
+                            permissions.Add(Android.Manifest.Permission.AccessFineLocation);
+                        }
+                        if (context.CheckSelfPermission(Android.Manifest.Permission.BluetoothConnect) != Permission.Granted)
+                        {
+                            permissions.Add(Android.Manifest.Permission.BluetoothConnect);
+                        }
+                        if (context.CheckSelfPermission(Android.Manifest.Permission.BluetoothScan) != Permission.Granted)
+                        {
+                            permissions.Add(Android.Manifest.Permission.BluetoothScan);
+                        }
+                    }
+
+                }
+            }
+
+            havePerms = permissions.Count == 0;
+            return (bool)havePerms;
+        }
+
     }
 }
