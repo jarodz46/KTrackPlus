@@ -23,6 +23,7 @@ using Java.Interop;
 using karooext.dotnet.Classes;
 using TimberLog;
 using Android.Graphics;
+using AndroidX.Core.Util;
 
 namespace KTrackPlus
 {
@@ -33,8 +34,8 @@ namespace KTrackPlus
     public class KTrackService : KarooExtension
     {
 
-        [Export(SuperArgumentsString = "\"ktrackplus\",\"2.0\"")]
-        public KTrackService() : base("ktrackplus", "2.0")
+        [Export(SuperArgumentsString = "\"ktrackplus\",\"2.1\"")]
+        public KTrackService() : base("ktrackplus", "2.1")
         {
         }
 
@@ -57,6 +58,9 @@ namespace KTrackPlus
         }
 
         public static bool isRunning { get; set; } = false;
+
+        public static List<(double Latitude, double Longitude)>? LastRoute {get; private set;}
+        internal static bool LastRouteChanged { get; set; } = false;
 
         internal static Manager? UsedManager { get; set; }
 
@@ -158,6 +162,34 @@ namespace KTrackPlus
                             var intent = actionIntent.Action;
                             var notif = new SystemNotification("ktpe", "KTrackPlus Connected", null, "KTrackPlus", style, null, null);
                             karooSystemService.Dispatch(notif);
+
+                            var resp = (OnNavigationState s) =>
+                            {
+                                if (s.State is OnNavigationState.NavigationState.NavigatingRoute)
+                                {
+                                    var route = s.State as OnNavigationState.NavigationState.NavigatingRoute;
+                                    if (route != null)
+                                    {
+                                        Console.WriteLine("New route : " + route.Name);
+                                        LastRoute = PolylineDecoder.DecodePolyline(route.RoutePolyline);
+                                    }
+                                    else
+                                    {
+                                        LastRoute = null;
+                                    }
+                                    LastRouteChanged = true;
+
+                                }
+                                if (s.State is OnNavigationState.NavigationState.Idle)
+                                {
+                                    Console.WriteLine("No route...");
+                                    LastRoute = null;
+                                    LastRouteChanged = true;
+
+                                }
+                            };
+                            var consumerId = karooSystemService.AddConsumer(resp);
+
                         }
                         else
                         {

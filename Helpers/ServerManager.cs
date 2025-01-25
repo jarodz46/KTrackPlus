@@ -243,16 +243,24 @@ namespace KTrackPlus.Helpers
             if (AskForReset)
             {
                 if (!await TryAskResetToAPI())
-                {
                     return;
-                }
                 AskForReset = false;
+            }
+
+            if (AskForResetRoute)
+            {
+                if (!await SendResetRoute())
+                    return;
+                AskForResetRoute = false;
             }
 
             if (!await SendPictures())
                 return;
 
-            if (!await SendPositions())
+            if (!await SendPositions(locations, Locations))
+                return;
+
+            if (!await SendPositions(routePoints, RoutePoints))
                 return;
 
             await sendStats();
@@ -315,6 +323,28 @@ namespace KTrackPlus.Helpers
                         lock (locations)
                         {
                             locations.AddRange(newLocs);
+                        }
+                        break;
+                    case bRESETROUTE:
+                        Console.WriteLine("Ask reset route...");
+                        AskForResetRoute = true;
+                        break;
+                    case bROUTELIST:
+                        MemoryStream memoryStream2 = new MemoryStream(value, 1, value.Length - 1);
+                        GZipStream zip2 = new GZipStream(memoryStream2, CompressionMode.Decompress, false);
+                        List<SimpleLocation> newLocs2 = new();
+                        byte[] buffer2 = new byte[16];
+                        while (zip2.Read(buffer2, 0, buffer2.Length) > 0)
+                        {
+                            var lat = BitConverter.ToSingle(buffer2, 0);
+                            var lng = BitConverter.ToSingle(buffer2, 4);
+                            var newLoc = new SimpleLocation(0, lat, lng, 0);
+                            newLocs2.Add(newLoc);
+                        }
+                        zip2.Close();
+                        lock (routePoints)
+                        {
+                            routePoints.AddRange(newLocs2);
                         }
                         break;
                 }

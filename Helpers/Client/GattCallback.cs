@@ -201,7 +201,7 @@ namespace KTrackPlus.Helpers.Client
                 if (string.IsNullOrEmpty(name))
                     name = gatt?.Device?.Address?.ToString();
                 Console.WriteLine("Sucessful connected to : " + name);
-                gatt.RequestMtu(227);
+                gatt.RequestMtu(Manager.MTU);
             }
             if (newState == ProfileState.Disconnected)
             {

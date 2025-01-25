@@ -25,11 +25,16 @@ namespace KTrackPlus.Helpers
     {
 
 
+        internal const byte bROUTELIST = 17;
         internal const byte bLOCLIST = 16;
         internal const byte bSTATS = 12;
         internal const byte bSETTINGS = 14;
         internal const byte bID = 13;
+        internal const byte bRESETROUTE = 11;
         internal const byte bRESET = 10;
+        internal const string Locations = "locations";
+        internal const string RoutePoints = "routePoints";
+        internal const int MTU = 227;
 
         internal string UsedId { get; set; } = string.Empty;
 
@@ -146,6 +151,8 @@ namespace KTrackPlus.Helpers
 
         public bool AskForReset { get; set; } = false;
 
+        public bool AskForResetRoute { get; set; } = false;
+
         protected void Reset()
         {
             locations.Clear();
@@ -201,6 +208,7 @@ namespace KTrackPlus.Helpers
 
         internal List<SimpleImgurInfo> pictures { get; private set; } = new();
         internal List<SimpleLocation> locations { get; private set; } = new();
+        internal List<BaseLocation> routePoints { get; private set; } = new();
 
         public bool AskSendMail { get; set; } = false;
         internal Stats Stats { get; set; } = new Stats();
@@ -312,14 +320,34 @@ namespace KTrackPlus.Helpers
             return await sendToAPI("stats", Stats);
         }
 
-        async Task<bool> sendLocationsPack(List<SimpleLocation> locs)
+        async Task<bool> sendLocationsPack<T>(List<T> locs, string name) where T : BaseLocation
         {
             if (locs.Count == 0)
                 return true;
             Stats.updated = true;
-            return await sendToAPI("locations", new LocationsPack(locs));
+            return await sendToAPI(name, new LocationsPack<T>(locs));
         }
 
+        protected async Task<bool> SendResetRoute()
+        {
+            var result = false;
+            try
+            {
+                result = await sendToAPI("resetRoute");
+            }
+            catch
+            {
+                result = false;
+            }
+            if (result)
+                return true;
+            else
+            {
+                LastError = "Fail to send reset route request";
+                System.Console.WriteLine(LastError);
+            }
+            return false;
+        }
 
         internal async Task<bool> SendMails()
         {
@@ -346,9 +374,11 @@ namespace KTrackPlus.Helpers
             return result;
         }
 
-        internal async Task<bool> SendPositions()
+        internal async Task<bool> SendPositions<T>(List<T> locations, string name) where T : BaseLocation
         {
-            var locsCache = new List<SimpleLocation>();
+            if (locations.Count == 0)
+                return true;
+            var locsCache = new List<T>();
             lock (locations)
             {
                 if (locations.Count >= 300 && Common.CurrentAppMode == Common.AppMode.Standalone && Common.IsKarooDevice)
@@ -366,15 +396,15 @@ namespace KTrackPlus.Helpers
                 {
                     return false;
                 }
-                List<SimpleLocation> locsToSend;
+                List<T> locsToSend;
                 if (locsCache.Count >= 100)
                     locsToSend = locsCache.GetRange(0, 100);
                 else
-                    locsToSend = new List<SimpleLocation>(locsCache);
+                    locsToSend = new List<T>(locsCache);
                 var result = false;
                 try
                 {
-                    result = await sendLocationsPack(locsToSend);                        
+                    result = await sendLocationsPack(locsToSend, name);
                 }
                 catch (Exception e)
                 {

@@ -155,7 +155,7 @@ namespace KTrackPlus.Helpers
         }
 
 
-        public static double CalculateDistance(SimpleLocation loc1, SimpleLocation loc2)
+        public static double CalculateDistance(BaseLocation loc1, BaseLocation loc2)
         {
             double lat1Rad = DegreesToRadians(loc1.lat);
             double lon1Rad = DegreesToRadians(loc1.lng);

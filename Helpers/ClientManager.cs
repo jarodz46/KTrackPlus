@@ -19,6 +19,7 @@ using Android.Hardware;
 using Android.Locations;
 using Android.Runtime;
 using Xamarin.KotlinX.Coroutines;
+using System.Runtime.InteropServices;
 
 namespace KTrackPlus.Helpers
 {
@@ -173,7 +174,7 @@ namespace KTrackPlus.Helpers
                     adapter?.Enable();
             }
 
-            Toast.MakeText(mContext, "Start livetracking...", ToastLength.Long);
+            //Toast.MakeText(mContext, "Start livetracking...", ToastLength.Long);
             Console.WriteLine("Start livetracking as " + Common.CurrentAppMode);
             KTrackService.RefreshNotifAction(KTrackReceiverService.KTrackServiceAction.Stop);
             return true;
@@ -229,7 +230,7 @@ namespace KTrackPlus.Helpers
             }
             Console.WriteLine("Stop livetracking");
             KTrackService.RefreshNotifAction(KTrackReceiverService.KTrackServiceAction.Start);
-            Toast.MakeText(mContext, "Stop livetracking", ToastLength.Long);
+            //Toast.MakeText(mContext, "Stop livetracking", ToastLength.Long);
         }
 
         internal void Reconnect()
@@ -390,6 +391,17 @@ namespace KTrackPlus.Helpers
             return true;
         }
 
+        bool ClientRequestResetRoute()
+        {
+            if (!GattHelper.WriteCharacteristic(mGatt, CharacteristicWrite, [bRESETROUTE]))
+            {
+                LastError = "Fail to ask for route reset...";
+                Console.WriteLine(LastError);
+                return false;
+            }
+            return true;
+        }
+
         async Task<bool> ResetRequest()
         {
             if (Common.CurrentAppMode == Common.AppMode.Client)
@@ -405,6 +417,62 @@ namespace KTrackPlus.Helpers
         protected async override Task FastTimerTask()
         {
             return;
+        }
+
+        void sendLocationsWithBle<T>(List<T> locations, byte type) where T : BaseLocation
+        {
+            while (locations.Count > 0)
+            {
+                if (AskStopTask)
+                    return;
+                if (!KTrackService.isRunning)
+                    return;
+                if (!readyToSend)
+                    return;
+                List<T> proceedLocs = new();
+                List<byte> sendBytes = new();
+                int count = 0;
+                MemoryStream memoryStream = new MemoryStream();
+                var max = MTU / Marshal.SizeOf(typeof(T));
+                using (GZipStream zip = new GZipStream(memoryStream, CompressionLevel.SmallestSize, true))
+                {
+
+                    foreach (var loc in locations)
+                    {
+                        double diff = double.MaxValue;
+                        if (lastSentLocation != null)
+                        {
+                            diff = lastSentLocation.DistanceTo(loc);
+                        }
+                        proceedLocs.Add(loc);
+                        if (diff > minDistance)
+                        {
+                            zip.Write(loc.ToByteArray());
+                            count++;
+                        }
+                        if (count >= max)
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                memoryStream.Position = 0;
+                if (!GattHelper.WriteCharacteristic(mGatt, CharacteristicWrite, new byte[] { type }.Concat(memoryStream.ToArray()).ToArray()))
+                {
+                    LastError = "Fail to send compressed loc list";
+                    Console.WriteLine(LastError);
+                    memoryStream.Close();
+                    return;
+                }
+                LastSendPosSuccess = System.DateTime.Now;
+                updateStatsRequierd = true;
+                memoryStream.Close();
+
+                locations.RemoveAll(l => proceedLocs.Contains(l));
+
+                System.Threading.Thread.Sleep(10);
+            }
         }
 
         public int ServerSignalStrength { get; set; } = 4;
@@ -589,62 +657,36 @@ namespace KTrackPlus.Helpers
                     waitForInternetShowed = false;
                     sendDirectlyShowed = false;
                 }
+                //Check route change
+                if (KTrackService.LastRouteChanged)
+                {
+                    if ((!sendToRelay && !await SendResetRoute()) || (sendToRelay && !ClientRequestResetRoute()))
+                    {
+                        Console.WriteLine("Failed to ask reset route");
+                        return;
+                    }
+                    lock (routePoints)
+                        routePoints.Clear();
+                    if (KTrackService.LastRoute != null)
+                    {
+                        lock (routePoints)
+                        {
+                            foreach (var point in KTrackService.LastRoute)
+                            {
+                                routePoints.Add(new BaseLocation((float)point.Latitude, (float)point.Longitude));
+                            }
+                        }
+                    }
+                    KTrackService.LastRouteChanged = false;
+                }
                 if (sendToRelay)
                 {
                     #region send to relay
-                    int sendCount = 0;
-                    while (locations.Count > 0)
-                    {
-                        if (AskStopTask)
-                            return;
-                        if (!KTrackService.isRunning)
-                            return;
-                        if (!readyToSend)
-                            return;
-                        List<SimpleLocation> proceedLocs = new();
-                        List<byte> sendBytes = new();
-                        int count = 0;
-                        MemoryStream memoryStream = new MemoryStream();
-                        using (GZipStream zip = new GZipStream(memoryStream, CompressionLevel.SmallestSize, true))
-                        {
-
-                            foreach (var loc in locations)
-                            {
-                                double diff = double.MaxValue;
-                                if (lastSentLocation != null)
-                                {
-                                    diff = lastSentLocation.DistanceTo(loc);
-                                }
-                                proceedLocs.Add(loc);
-                                if (diff > minDistance)
-                                {
-                                    zip.Write(loc.ToByeArray());
-                                    sendCount++;
-                                    count++;
-                                }
-                                if (count >= 11)
-                                {
-                                    break;
-                                }
-                            }
-                        }
-
-                        memoryStream.Position = 0;
-                        if (!GattHelper.WriteCharacteristic(mGatt, CharacteristicWrite, new byte[] { bLOCLIST }.Concat(memoryStream.ToArray()).ToArray()))
-                        {
-                            LastError = "Fail to send compressed loc list";
-                            Console.WriteLine(LastError);
-                            memoryStream.Close();
-                            return;
-                        }
-                        LastSendPosSuccess = System.DateTime.Now;
-                        updateStatsRequierd = true;
-                        memoryStream.Close();
-
-                        locations.RemoveAll(l => proceedLocs.Contains(l));
-
-                        System.Threading.Thread.Sleep(10);
-                    }
+                    //Send locations
+                    sendLocationsWithBle(locations, bLOCLIST);
+                    //Send routes                    
+                    sendLocationsWithBle(routePoints, bROUTELIST);
+                    //Send stats
                     if (updateStatsRequierd)
                     {
                         var statsArray = Stats.ToBytesArray();
@@ -657,6 +699,7 @@ namespace KTrackPlus.Helpers
                         }
                         updateStatsRequierd = false;
                     }
+                    
                     #endregion 
                 }
                 else
@@ -666,7 +709,9 @@ namespace KTrackPlus.Helpers
                         return;
                     if (!await SendPictures())
                         return;
-                    if (!await SendPositions())
+                    if (!await SendPositions(locations, Locations))
+                        return;
+                    if (!await SendPositions(routePoints, RoutePoints))
                         return;
                     await sendStats();
                     #endregion
