@@ -1,4 +1,5 @@
 ﻿using Android.Content;
+using Android.OS;
 using Android.Preferences;
 using Android.Runtime;
 using Android.Views;
@@ -29,6 +30,12 @@ namespace KTrackPlus.Helpers.Client
 
             base.OnCreate(savedInstanceState);
             ActionBar?.SetDisplayHomeAsUpEnabled(true);
+
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.P)
+            {
+                Window.Attributes.LayoutInDisplayCutoutMode = LayoutInDisplayCutoutMode.ShortEdges;
+            }
+            Window.DecorView.SetOnApplyWindowInsetsListener(new WindowInsetsListener());
 
             if (savedInstanceState == null)
             {

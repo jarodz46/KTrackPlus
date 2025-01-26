@@ -371,13 +371,19 @@ namespace KTrackPlus
         internal static MainActivity? Get { get; private set; }
 
         
-        
+
         protected override void OnCreate(Bundle? savedInstanceState)
         {
 
             try
             {
                 base.OnCreate(savedInstanceState);
+
+                if (Build.VERSION.SdkInt >= BuildVersionCodes.P)
+                {
+                    Window.Attributes.LayoutInDisplayCutoutMode = LayoutInDisplayCutoutMode.ShortEdges;
+                }
+                Window.DecorView.SetOnApplyWindowInsetsListener(new WindowInsetsListener());
 
 
                 Platform.Init(this, savedInstanceState);
