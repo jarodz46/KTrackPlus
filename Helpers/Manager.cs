@@ -325,7 +325,7 @@ namespace KTrackPlus.Helpers
             if (locs.Count == 0)
                 return true;
             Stats.updated = true;
-            return await sendToAPI(name, new LocationsPack<T>(locs));
+            return await sendToAPI(name, new ObjectsPack<T>(locs));
         }
 
         protected async Task<bool> SendResetRoute()

@@ -317,6 +317,8 @@ namespace KTrackPlus.Helpers
                             var lng = BitConverter.ToSingle(buffer, 8);
                             var alt = BitConverter.ToSingle(buffer, 12);
                             var newLoc = new SimpleLocation(tt, lat, lng, alt);
+                            //if (newLocs.Count == 0)
+                            //    Console.WriteLine("rec spos : " + newLoc);
                             newLocs.Add(newLoc);
                         }
                         zip.Close();
@@ -332,13 +334,15 @@ namespace KTrackPlus.Helpers
                     case bROUTELIST:
                         MemoryStream memoryStream2 = new MemoryStream(value, 1, value.Length - 1);
                         GZipStream zip2 = new GZipStream(memoryStream2, CompressionMode.Decompress, false);
-                        List<SimpleLocation> newLocs2 = new();
+                        List<BaseLocation> newLocs2 = new();
                         byte[] buffer2 = new byte[16];
                         while (zip2.Read(buffer2, 0, buffer2.Length) > 0)
                         {
                             var lat = BitConverter.ToSingle(buffer2, 0);
                             var lng = BitConverter.ToSingle(buffer2, 4);
-                            var newLoc = new SimpleLocation(0, lat, lng, 0);
+                            var newLoc = new BaseLocation(lat, lng);
+                            //if (newLocs2.Count == 0)
+                            //    Console.WriteLine("rec bpos : " + newLoc);
                             newLocs2.Add(newLoc);
                         }
                         zip2.Close();

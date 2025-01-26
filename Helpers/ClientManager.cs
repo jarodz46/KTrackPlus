@@ -431,9 +431,8 @@ namespace KTrackPlus.Helpers
                     return;
                 List<T> proceedLocs = new();
                 List<byte> sendBytes = new();
-                int count = 0;
                 MemoryStream memoryStream = new MemoryStream();
-                var max = MTU / Marshal.SizeOf(typeof(T));
+                var totalSize = 0;
                 using (GZipStream zip = new GZipStream(memoryStream, CompressionLevel.SmallestSize, true))
                 {
 
@@ -447,12 +446,16 @@ namespace KTrackPlus.Helpers
                         proceedLocs.Add(loc);
                         if (diff > minDistance)
                         {
-                            zip.Write(loc.ToByteArray());
-                            count++;
-                        }
-                        if (count >= max)
-                        {
-                            break;
+                            var bytes = loc.ToByteArray();
+                            //if (totalSize == 0)
+                            //    Console.WriteLine("send " + loc);
+                            totalSize += bytes.Length;
+                            if (totalSize >= MTU)
+                            {
+                                proceedLocs.Remove(loc);
+                                break;
+                            }
+                            zip.Write(bytes);
                         }
                     }
                 }

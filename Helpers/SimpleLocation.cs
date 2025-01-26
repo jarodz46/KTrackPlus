@@ -8,8 +8,13 @@ using MessagePack;
 
 namespace KTrackPlus.Helpers
 {
+    public abstract class SendObject
+    {
+        public abstract byte[] ToByteArray();
+    }
+
     [MessagePackObject]
-    public class BaseLocation
+    public class BaseLocation : SendObject
     {
         [Key(1)]
         public float lat { get; set; }
@@ -22,7 +27,12 @@ namespace KTrackPlus.Helpers
             this.lng = lng;
         }
 
-        public byte[] ToByteArray()
+        public override string ToString()
+        {
+            return lat + " - " + lng;
+        }
+
+        public override byte[] ToByteArray()
         {
             byte[] latBytes = BitConverter.GetBytes(lat);
             byte[] longBytes = BitConverter.GetBytes(lng);
@@ -49,7 +59,12 @@ namespace KTrackPlus.Helpers
             this.alt = alt;
         }
 
-        new public byte[] ToByteArray()
+        public override string ToString()
+        {
+            return tt + ": " + lat + " - " + lng + " - " + alt;
+        }
+
+        public override byte[] ToByteArray()
         {
             byte[] ttBytes = BitConverter.GetBytes(tt);
             byte[] latBytes = BitConverter.GetBytes(lat);
@@ -60,14 +75,14 @@ namespace KTrackPlus.Helpers
     }
 
     [MessagePackObject]
-    public class LocationsPack<T> where T : BaseLocation
+    public class ObjectsPack<T> where T : SendObject
     {
         [Key(0)]
-        public List<T> locs { get; set; }
+        public List<T> objs { get; set; }
 
-        public LocationsPack(List<T> locs)
+        public ObjectsPack(List<T> locs)
         {
-            this.locs = locs;
+            this.objs = locs;
         }
     }
 }
