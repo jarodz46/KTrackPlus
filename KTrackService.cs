@@ -59,6 +59,7 @@ namespace KTrackPlus
 
         public static bool isRunning { get; set; } = false;
 
+        static string lastRoutePoly = string.Empty;
         public static List<(double Latitude, double Longitude)>? LastRoute {get; private set;}
         internal static bool LastRouteChanged { get; set; } = false;
 
@@ -170,20 +171,24 @@ namespace KTrackPlus
                                     var route = s.State as OnNavigationState.NavigationState.NavigatingRoute;
                                     if (route != null)
                                     {
-                                        Console.WriteLine("New route : " + route.Name);
-                                        LastRoute = PolylineDecoder.DecodePolyline(route.RoutePolyline);
+                                        if (route.RoutePolyline != lastRoutePoly)
+                                        {
+                                            lastRoutePoly = route.RoutePolyline;
+                                            LastRoute = PolylineDecoder.DecodePolyline(route.RoutePolyline);
+                                            Console.WriteLine("New route : " + route.Name + " (" + LastRoute.Count + " points)");
+                                            LastRouteChanged = true;
+                                        }
                                     }
                                     else
                                     {
                                         LastRoute = null;
                                     }
-                                    LastRouteChanged = true;
-
                                 }
                                 if (s.State is OnNavigationState.NavigationState.Idle)
                                 {
                                     Console.WriteLine("No route...");
                                     LastRoute = null;
+                                    lastRoutePoly = string.Empty;
                                     LastRouteChanged = true;
 
                                 }

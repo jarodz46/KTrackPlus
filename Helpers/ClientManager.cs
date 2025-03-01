@@ -421,6 +421,7 @@ namespace KTrackPlus.Helpers
 
         void sendLocationsWithBle<T>(List<T> locations, byte type) where T : BaseLocation
         {
+            int proceedCount = 0;
             while (locations.Count > 0)
             {
                 if (AskStopTask)
@@ -450,7 +451,7 @@ namespace KTrackPlus.Helpers
                             //if (totalSize == 0)
                             //    Console.WriteLine("send " + loc);
                             totalSize += bytes.Length;
-                            if (totalSize >= MTU)
+                            if (totalSize >= MTU - 10)
                             {
                                 proceedLocs.Remove(loc);
                                 break;
@@ -471,10 +472,13 @@ namespace KTrackPlus.Helpers
                 LastSendPosSuccess = System.DateTime.Now;
                 updateStatsRequierd = true;
                 memoryStream.Close();
-
+                proceedCount++;
                 locations.RemoveAll(l => proceedLocs.Contains(l));
 
                 System.Threading.Thread.Sleep(10);
+
+                if (proceedCount >= 10)
+                    break;
             }
         }
 
@@ -660,9 +664,11 @@ namespace KTrackPlus.Helpers
                     waitForInternetShowed = false;
                     sendDirectlyShowed = false;
                 }
+                bool routeReseted = false;
                 //Check route change
                 if (KTrackService.LastRouteChanged)
                 {
+                    routeReseted = true;
                     if ((!sendToRelay && !await SendResetRoute()) || (sendToRelay && !ClientRequestResetRoute()))
                     {
                         Console.WriteLine("Failed to ask reset route");
@@ -678,6 +684,7 @@ namespace KTrackPlus.Helpers
                             {
                                 routePoints.Add(new BaseLocation((float)point.Latitude, (float)point.Longitude));
                             }
+                            Console.WriteLine("Route prepared to send (" + routePoints.Count + ")");
                         }
                     }
                     KTrackService.LastRouteChanged = false;
@@ -687,8 +694,11 @@ namespace KTrackPlus.Helpers
                     #region send to relay
                     //Send locations
                     sendLocationsWithBle(locations, bLOCLIST);
-                    //Send routes                    
-                    sendLocationsWithBle(routePoints, bROUTELIST);
+                    //Send routes
+                    if (!routeReseted && routePoints.Count > 0)
+                    {
+                        sendLocationsWithBle(routePoints, bROUTELIST);
+                    }
                     //Send stats
                     if (updateStatsRequierd)
                     {
@@ -710,13 +720,21 @@ namespace KTrackPlus.Helpers
                     #region send directly
                     if (!checkInternet())
                         return;
+                    if (locations.Count > 0 || routePoints.Count > 0)
+                    {
+                        updateStatsRequierd = true;
+                        if (!await SendPositions(locations, Locations))
+                            return;
+                        if (!await SendPositions(routePoints, RoutePoints))
+                            return;
+                    }
                     if (!await SendPictures())
                         return;
-                    if (!await SendPositions(locations, Locations))
-                        return;
-                    if (!await SendPositions(routePoints, RoutePoints))
-                        return;
-                    await sendStats();
+                    if (updateStatsRequierd)
+                    {
+                        if (await sendStats())
+                            updateStatsRequierd = false;
+                    }
                     #endregion
                 }
                 

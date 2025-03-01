@@ -242,6 +242,7 @@ namespace KTrackPlus.Helpers
 
             if (AskForReset)
             {
+                Console.WriteLine("Send reset to api...");
                 if (!await TryAskResetToAPI())
                     return;
                 AskForReset = false;
@@ -263,9 +264,13 @@ namespace KTrackPlus.Helpers
             if (!await SendPositions(routePoints, RoutePoints))
                 return;
 
-            await sendStats();
+            if (statsChanged)
+            {
+                await sendStats();
+            }
         }
 
+        bool statsChanged = false;
         internal bool HandleRequest(byte[] value)
         {
             if (value.Length > 0)
@@ -285,6 +290,7 @@ namespace KTrackPlus.Helpers
                     case bSTATS:
                         if (value.Length >= 1 + 4 * 4)
                         {
+                            statsChanged = true;
                             Stats.rideTime = BitConverter.ToUInt32(value, 1);
                             Stats.ascend = BitConverter.ToSingle(value, 5);
                             Stats.distance = BitConverter.ToSingle(value, 9);
